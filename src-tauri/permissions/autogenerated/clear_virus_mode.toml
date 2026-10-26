@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clear-virus-mode"
+description = "Enables the clear_virus_mode command without any pre-configured scope."
+commands.allow = ["clear_virus_mode"]
+
+[[permission]]
+identifier = "deny-clear-virus-mode"
+description = "Denies the clear_virus_mode command without any pre-configured scope."
+commands.deny = ["clear_virus_mode"]

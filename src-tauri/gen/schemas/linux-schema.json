@@ -177,6 +177,258 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the app_version command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-app-version",
+          "markdownDescription": "Enables the app_version command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the check_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-check-update",
+          "markdownDescription": "Enables the check_update command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clear_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-session",
+          "markdownDescription": "Enables the clear_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clear_virus_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-virus-mode",
+          "markdownDescription": "Enables the clear_virus_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finish_changelog command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finish-changelog",
+          "markdownDescription": "Enables the finish_changelog command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_onboarding_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-onboarding-state",
+          "markdownDescription": "Enables the get_onboarding_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the hide_to_tray command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-hide-to-tray",
+          "markdownDescription": "Enables the hide_to_tray command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the install_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-install-update",
+          "markdownDescription": "Enables the install_update command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_changelog command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-changelog",
+          "markdownDescription": "Enables the open_changelog command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_system_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-system-window",
+          "markdownDescription": "Enables the open_system_window command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the restart_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-restart-app",
+          "markdownDescription": "Enables the restart_app command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resume_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resume-session",
+          "markdownDescription": "Enables the resume_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-session",
+          "markdownDescription": "Enables the save_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the session_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-session-status",
+          "markdownDescription": "Enables the session_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_system_widget_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-system-widget-enabled",
+          "markdownDescription": "Enables the set_system_widget_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the show_splash command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-show-splash",
+          "markdownDescription": "Enables the show_splash command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_desktop_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-desktop-login",
+          "markdownDescription": "Enables the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the system_metrics command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-system-metrics",
+          "markdownDescription": "Enables the system_metrics command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the system_overlay_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-system-overlay-url",
+          "markdownDescription": "Enables the system_overlay_url command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the system_widget_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-system-widget-enabled",
+          "markdownDescription": "Enables the system_widget_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_mini command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-mini",
+          "markdownDescription": "Enables the toggle_mini command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the app_version command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-app-version",
+          "markdownDescription": "Denies the app_version command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-check-update",
+          "markdownDescription": "Denies the check_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-session",
+          "markdownDescription": "Denies the clear_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_virus_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-virus-mode",
+          "markdownDescription": "Denies the clear_virus_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finish_changelog command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finish-changelog",
+          "markdownDescription": "Denies the finish_changelog command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_onboarding_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-onboarding-state",
+          "markdownDescription": "Denies the get_onboarding_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the hide_to_tray command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-hide-to-tray",
+          "markdownDescription": "Denies the hide_to_tray command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the install_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-install-update",
+          "markdownDescription": "Denies the install_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_changelog command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-changelog",
+          "markdownDescription": "Denies the open_changelog command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_system_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-system-window",
+          "markdownDescription": "Denies the open_system_window command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the restart_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-restart-app",
+          "markdownDescription": "Denies the restart_app command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resume_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resume-session",
+          "markdownDescription": "Denies the resume_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-session",
+          "markdownDescription": "Denies the save_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the session_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-session-status",
+          "markdownDescription": "Denies the session_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_system_widget_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-system-widget-enabled",
+          "markdownDescription": "Denies the set_system_widget_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the show_splash command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-show-splash",
+          "markdownDescription": "Denies the show_splash command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_desktop_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-desktop-login",
+          "markdownDescription": "Denies the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the system_metrics command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-system-metrics",
+          "markdownDescription": "Denies the system_metrics command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the system_overlay_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-system-overlay-url",
+          "markdownDescription": "Denies the system_overlay_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the system_widget_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-system-widget-enabled",
+          "markdownDescription": "Denies the system_widget_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_mini command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-mini",
+          "markdownDescription": "Denies the toggle_mini command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

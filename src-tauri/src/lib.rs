@@ -843,6 +843,40 @@ struct UpdateInfo {
     date: Option<String>,
 }
 
+fn toggle_mini_mode(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let compact = window
+            .inner_size()
+            .map(|size| size.width <= 600)
+            .unwrap_or(false);
+
+        if compact {
+            let _ = window.set_min_size(Some(LogicalSize::new(1024.0, 640.0)));
+            let _ = window.set_size(LogicalSize::new(1280.0, 800.0));
+            let _ = window.set_always_on_top(false);
+        } else {
+            let _ = window.set_min_size(Some(LogicalSize::new(360.0, 480.0)));
+            let _ = window.set_size(LogicalSize::new(420.0, 640.0));
+            let _ = window.set_always_on_top(true);
+        }
+
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+#[tauri::command]
+fn hide_to_tray(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+}
+
+#[tauri::command]
+fn toggle_mini(app: AppHandle) {
+    toggle_mini_mode(&app);
+}
+
 #[tauri::command]
 fn app_version() -> String {
     APP_VERSION.to_owned()
@@ -1376,27 +1410,7 @@ pub fn run() {
                     "system" => {
                         let _ = open_system_window(app.clone());
                     }
-                    "mini" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let compact = window
-                                .inner_size()
-                                .map(|size| size.width <= 600)
-                                .unwrap_or(false);
-
-                            if compact {
-                                let _ = window.set_min_size(Some(LogicalSize::new(1024.0, 640.0)));
-                                let _ = window.set_size(LogicalSize::new(1280.0, 800.0));
-                                let _ = window.set_always_on_top(false);
-                            } else {
-                                let _ = window.set_min_size(Some(LogicalSize::new(360.0, 480.0)));
-                                let _ = window.set_size(LogicalSize::new(420.0, 640.0));
-                                let _ = window.set_always_on_top(true);
-                            }
-
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
+                    "mini" => toggle_mini_mode(app),
                     "top" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let next = !window.is_always_on_top().unwrap_or(false);
@@ -1468,6 +1482,8 @@ pub fn run() {
             resume_session,
             start_desktop_login,
             app_version,
+            hide_to_tray,
+            toggle_mini,
             check_update,
             install_update
         ])

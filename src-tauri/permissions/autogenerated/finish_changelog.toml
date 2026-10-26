@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-finish-changelog"
+description = "Enables the finish_changelog command without any pre-configured scope."
+commands.allow = ["finish_changelog"]
+
+[[permission]]
+identifier = "deny-finish-changelog"
+description = "Denies the finish_changelog command without any pre-configured scope."
+commands.deny = ["finish_changelog"]

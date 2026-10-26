@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-open-changelog"
+description = "Enables the open_changelog command without any pre-configured scope."
+commands.allow = ["open_changelog"]
+
+[[permission]]
+identifier = "deny-open-changelog"
+description = "Denies the open_changelog command without any pre-configured scope."
+commands.deny = ["open_changelog"]
