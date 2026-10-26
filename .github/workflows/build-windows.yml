@@ -36,27 +36,25 @@ jobs:
             echo "::error::TAURI_SIGNING_PRIVATE_KEY is not configured"
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/updater"
-          keyfile="$RUNNER_TEMP/updater/updater.key"
+          work="$RUNNER_TEMP/updater"
+          mkdir -p "$work"
+          raw="$work/updater.raw"
+          encoded="$work/updater.key"
           if [[ "$key" == *"untrusted comment"* ]]; then
             if [[ "$key" == *'\n'* && "$key" != *$'\n'* ]]; then
-              printf '%b\n' "$key" > "$keyfile"
+              printf '%b\n' "$key" > "$raw"
             else
-              printf '%s\n' "$key" > "$keyfile"
+              printf '%s\n' "$key" > "$raw"
             fi
+            base64 -w0 "$raw" > "$encoded"
           else
-            printf '%s' "$key" | base64 -d > "$keyfile"
+            printf '%s' "$key" | tr -d '\r\n' > "$encoded"
           fi
-          head -n 1 "$keyfile" | grep -q "untrusted comment" || {
-            echo "::error::Updater key is invalid: missing untrusted comment line"
+          base64 -d "$encoded" | head -n 1 | grep -q "untrusted comment" || {
+            echo "::error::Updater key is invalid: expected base64-encoded Tauri updater key"
             exit 1
           }
-          echo "TAURI_SIGNING_PRIVATE_KEY_PATH=$keyfile" >> "$GITHUB_ENV"
-          {
-            echo "TAURI_SIGNING_PRIVATE_KEY<<__STREAMHATA_KEY__"
-            cat "$keyfile"
-            echo "__STREAMHATA_KEY__"
-          } >> "$GITHUB_ENV"
+          echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$encoded")" >> "$GITHUB_ENV"
 
       - name: Build and bundle
         uses: tauri-apps/tauri-action@v0
