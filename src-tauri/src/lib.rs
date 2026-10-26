@@ -844,6 +844,11 @@ struct UpdateInfo {
 }
 
 #[tauri::command]
+fn app_version() -> String {
+    APP_VERSION.to_owned()
+}
+
+#[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
     let update = app
         .updater()
@@ -1462,6 +1467,7 @@ pub fn run() {
             restart_app,
             resume_session,
             start_desktop_login,
+            app_version,
             check_update,
             install_update
         ])
