@@ -10,7 +10,9 @@ use sysinfo::{Disks, Networks, System};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    AppHandle, Emitter, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -910,6 +912,72 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart();
 }
 
+async fn tray_check_and_update(app: AppHandle) {
+    let update = match app.updater() {
+        Ok(updater) => updater.check().await,
+        Err(error) => {
+            let _ = app
+                .notification()
+                .builder()
+                .title("Не удалось проверить обновление")
+                .body(error.to_string())
+                .show();
+            return;
+        }
+    };
+
+    let Ok(update) = update else {
+        let _ = app
+            .notification()
+            .builder()
+            .title("StreamHata обновлён")
+            .body("Установлена последняя доступная версия.")
+            .show();
+        return;
+    };
+
+    let Some(update) = update else {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Обновлений нет")
+            .body("Установлена последняя версия StreamHata.")
+            .show();
+        return;
+    };
+
+    let version = update.version.clone();
+    let _ = app
+        .notification()
+        .builder()
+        .title("Обновляем StreamHata")
+        .body(format!("Скачиваем версию {version}…"))
+        .show();
+
+    let emitter = app.clone();
+
+    if update
+        .download_and_install(
+            move |downloaded, total| {
+                let _ = emitter.emit("update-progress", (downloaded, total));
+            },
+            || {},
+        )
+        .await
+        .is_err()
+    {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Не удалось обновить StreamHata")
+            .body("Попробуйте ещё раз или обновите вручную.")
+            .show();
+        return;
+    }
+
+    app.restart();
+}
+
 #[tauri::command]
 fn clear_session() -> Result<(), String> {
     match entry()?.delete_credential() {
@@ -1282,8 +1350,12 @@ pub fn run() {
 
             let show = MenuItem::with_id(app, "show", "Открыть StreamHata", true, None::<&str>)?;
             let system = MenuItem::with_id(app, "system", "Система", true, None::<&str>)?;
+            let mini = MenuItem::with_id(app, "mini", "Мини-режим", true, None::<&str>)?;
+            let top = MenuItem::with_id(app, "top", "Поверх всех окон", true, None::<&str>)?;
+            let hide = MenuItem::with_id(app, "hide", "Скрыть в трей", true, None::<&str>)?;
+            let update = MenuItem::with_id(app, "update", "Проверить обновление", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &system, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &system, &mini, &top, &hide, &update, &quit])?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().cloned().expect("app icon"))
@@ -1298,6 +1370,44 @@ pub fn run() {
                     }
                     "system" => {
                         let _ = open_system_window(app.clone());
+                    }
+                    "mini" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let compact = window
+                                .inner_size()
+                                .map(|size| size.width <= 600)
+                                .unwrap_or(false);
+
+                            if compact {
+                                let _ = window.set_min_size(Some(LogicalSize::new(1024.0, 640.0)));
+                                let _ = window.set_size(LogicalSize::new(1280.0, 800.0));
+                                let _ = window.set_always_on_top(false);
+                            } else {
+                                let _ = window.set_min_size(Some(LogicalSize::new(360.0, 480.0)));
+                                let _ = window.set_size(LogicalSize::new(420.0, 640.0));
+                                let _ = window.set_always_on_top(true);
+                            }
+
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "top" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let next = !window.is_always_on_top().unwrap_or(false);
+                            let _ = window.set_always_on_top(next);
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "update" => {
+                        let app = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            tray_check_and_update(app).await;
+                        });
                     }
                     "quit" => app.exit(0),
                     _ => {}
