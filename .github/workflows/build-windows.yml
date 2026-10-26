@@ -54,7 +54,8 @@ jobs:
             echo "::error::Updater key is invalid: expected base64-encoded Tauri updater key"
             exit 1
           }
-          echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$encoded")" >> "$GITHUB_ENV"
+          echo "TAURI_SIGNING_PRIVATE_KEY_PATH=$encoded" >> "$GITHUB_ENV"
+          echo "Prepared updater key: $(wc -c < "$encoded") bytes (base64)"
 
       - name: Build and bundle
         uses: tauri-apps/tauri-action@v0
