@@ -10,12 +10,13 @@ use sysinfo::{Disks, Networks, System};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
 const SERVICE: &str = "dev.rdpctd.nameless-streamhata";
 static SYSTEM_WIDGET_ENABLED: AtomicBool = AtomicBool::new(true);
+static UPDATE_NOTIFIED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 const SYSTEM_OVERLAY_URL: &str = "http://127.0.0.1:17890/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TERMS_VERSION: &str = "1.2";
@@ -836,8 +837,15 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    version: String,
+    notes: Option<String>,
+    date: Option<String>,
+}
+
 #[tauri::command]
-async fn check_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
     let update = app
         .updater()
         .map_err(|error| error.to_string())?
@@ -845,7 +853,64 @@ async fn check_updates(app: tauri::AppHandle) -> Result<Option<String>, String> 
         .await
         .map_err(|error| error.to_string())?;
 
-    Ok(update.map(|update| update.version))
+    let Some(update) = update else {
+        return Ok(None);
+    };
+
+    let should_notify = UPDATE_NOTIFIED
+        .lock()
+        .map(|mut seen| {
+            if seen.as_deref() == Some(update.version.as_str()) {
+                false
+            } else {
+                *seen = Some(update.version.clone());
+                true
+            }
+        })
+        .unwrap_or(false);
+
+    if should_notify {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Доступно обновление StreamHata")
+            .body(format!(
+                "Версия {} уже доступна. Откройте приложение, чтобы обновиться.",
+                update.version
+            ))
+            .show();
+    }
+
+    Ok(Some(UpdateInfo {
+        version: update.version,
+        notes: update.body,
+        date: update.date.map(|value| value.to_string()),
+    }))
+}
+
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let update = app
+        .updater()
+        .map_err(|error| error.to_string())?
+        .check()
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "Обновлений нет".to_string())?;
+
+    let emitter = app.clone();
+
+    update
+        .download_and_install(
+            move |downloaded, total| {
+                let _ = emitter.emit("update-progress", (downloaded, total));
+            },
+            || {},
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+
+    app.restart();
 }
 
 #[tauri::command]
@@ -1290,7 +1355,8 @@ pub fn run() {
             restart_app,
             resume_session,
             start_desktop_login,
-            check_updates
+            check_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
