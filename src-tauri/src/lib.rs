@@ -626,6 +626,28 @@ fn show_splash(app: AppHandle) {
 }
 
 #[tauri::command]
+fn open_changelog(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("changelog") {
+        let _ = window.show();
+        let _ = window.set_focus();
+
+        return Ok(());
+    }
+
+    WebviewWindowBuilder::new(&app, "changelog", WebviewUrl::App("changelog.html".into()))
+        .title("Что нового · Nameless StreamHata")
+        .inner_size(760.0, 680.0)
+        .min_inner_size(520.0, 420.0)
+        .resizable(true)
+        .center()
+        .visible(true)
+        .focused(true)
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn finish_changelog(app: AppHandle) {
     if let Some(window) = app.get_webview_window("changelog") {
         let _ = window.destroy();
@@ -1261,6 +1283,7 @@ pub fn run() {
             system_overlay_url,
             open_system_window,
             show_splash,
+            open_changelog,
             finish_changelog,
             get_onboarding_state,
             clear_virus_mode,
