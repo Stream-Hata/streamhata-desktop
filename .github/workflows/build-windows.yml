@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           version=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
-          artifact=$(find target/release/bundle -type f \( -name '*.nsis.zip' -o -name '*.msi' \) -print -quit)
+          artifact=$(find . -type f \( -name '*.nsis.zip' -o -name '*.msi' \) -print -quit)
           signature="$artifact.sig"
           test -n "$artifact"
           test -f "$signature"
