@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Nameless StreamHata
+Comment=Desktop-панель стримера
+Exec=/run/media/ngdev/FileTrashbox/nameless-streamhata-desktop/target/release/nameless-streamhata-desktop
+Icon=nameless-streamhata
+Terminal=false
+Categories=AudioVideo;Utility;
+StartupWMClass=nameless-streamhata-desktop

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>System</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100vh; background: transparent; }
+      body { padding: 8px; font-family: Inter, system-ui, sans-serif; color: #fff; }
+      .widget { display: none; gap: 8px; flex-direction: column; width: 320px; padding: 14px; border: 1px solid #3b214d; border-radius: 14px; background: rgba(16, 8, 24, .88); }
+      .row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+      .label { color: #b9a8cf; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+      .value { font-weight: 700; font-variant-numeric: tabular-nums; }
+      .bar { height: 7px; overflow: hidden; border-radius: 99px; background: #2a173d; }
+      .bar > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2ea6, #22e0ff); transition: width .25s ease; }
+      .muted, .disk { color: #b9a8cf; font-size: 11px; }
+      .disk { display: flex; justify-content: space-between; gap: 12px; padding-top: 4px; border-top: 1px solid #3b214d; }
+      .off { color: #b9a8cf; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="widget" id="widget">
+      <div id="cpu-box"><div class="row"><span class="label">CPU</span><span class="value" id="cpu">—</span></div><div class="bar"><span id="cpu-bar"></span></div></div>
+      <div id="gpu-box"><div class="row"><span class="label">GPU</span><span class="value" id="gpu">—</span></div><div class="bar"><span id="gpu-bar"></span></div></div>
+      <div id="memory-box"><div class="row"><span class="label">Память</span><span class="value" id="memory">—</span></div><div class="bar"><span id="memory-bar"></span></div></div>
+      <div id="network-box"><div class="row"><span class="label">Сеть</span><span class="value" id="network">—</span></div></div>
+      <div id="processes-box"><div class="row muted"><span id="processes">—</span><span id="uptime"></span></div></div>
+      <div id="disks-box"></div>
+    </div>
+    <div class="off" id="off">Виджет выключен</div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const show = (key) => params.get(key) !== '0';
+      const interval = Math.max(1, Number(params.get('interval')) || 2) * 1000;
+      let previous = null, previousAt = 0;
+      const formatBytes = (value) => {
+        if (!value) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const index = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
+        return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
+      };
+      async function tick() {
+        try {
+          const response = await fetch('/metrics', { cache: 'no-store' });
+          const data = await response.json();
+          document.getElementById('widget').style.display = data.enabled ? 'flex' : 'none';
+          document.getElementById('off').style.display = data.enabled ? 'none' : 'block';
+          if (!data.enabled) return;
+          document.getElementById('cpu-box').style.display = show('cpu') ? 'block' : 'none';
+          document.getElementById('gpu-box').style.display = show('gpu') && data.gpu != null ? 'block' : 'none';
+          document.getElementById('memory-box').style.display = show('memory') ? 'block' : 'none';
+          document.getElementById('network-box').style.display = show('network') ? 'block' : 'none';
+          document.getElementById('processes-box').style.display = show('processes') ? 'block' : 'none';
+          document.getElementById('disks-box').style.display = show('disks') ? 'block' : 'none';
+          document.getElementById('cpu').textContent = `${data.cpu.toFixed(0)}%`;
+          document.getElementById('cpu-bar').style.width = `${Math.min(100, data.cpu)}%`;
+          if (data.gpu != null) {
+            document.getElementById('gpu').textContent = `${data.gpu.toFixed(0)}%`;
+            document.getElementById('gpu-bar').style.width = `${Math.min(100, data.gpu)}%`;
+          }
+          const memory = data.memory_total ? (data.memory_used / data.memory_total) * 100 : 0;
+          document.getElementById('memory').textContent = `${formatBytes(data.memory_used)} / ${formatBytes(data.memory_total)}`;
+          document.getElementById('memory-bar').style.width = `${memory}%`;
+          const now = Date.now();
+          if (previous) {
+            const seconds = Math.max(0.5, (now - previousAt) / 1000);
+            const down = Math.max(0, (data.network_received - previous.network_received) / seconds);
+            const up = Math.max(0, (data.network_transmitted - previous.network_transmitted) / seconds);
+            document.getElementById('network').textContent = `${formatBytes(down)}/s ↓ · ${formatBytes(up)}/s ↑`;
+          }
+          previous = data; previousAt = now;
+          document.getElementById('processes').textContent = `${data.processes} процессов`;
+          document.getElementById('uptime').textContent = `аптайм ${Math.floor(data.uptime / 3600)} ч`;
+          document.getElementById('disks-box').innerHTML = data.disks.map((disk) => {
+            const used = disk.total - disk.available;
+            return `<div class="disk"><span>${disk.mount}</span><span>${formatBytes(used)} / ${formatBytes(disk.total)}</span></div>`;
+          }).join('');
+        } catch {}
+      }
+      tick();
+      setInterval(tick, interval);
+    </script>
+  </body>
+</html>

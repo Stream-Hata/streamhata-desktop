@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Система · Nameless StreamHata</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+      body { margin: 0; min-height: 100vh; padding: 24px; box-sizing: border-box; background: radial-gradient(700px 420px at 20% 0%, #2b1128, #0f0817 70%); color: #f5eaff; }
+      h1 { margin: 0 0 4px; font-size: 24px; }
+      .sub { color: #b9a8cf; font-size: 12px; margin-bottom: 18px; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .card { padding: 16px; border: 1px solid #3b214d; border-radius: 14px; background: #180e26cc; }
+      .label { color: #b9a8cf; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+      .value { margin-top: 6px; font-size: 26px; font-weight: 800; }
+      .bar { height: 8px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #2a173d; }
+      .bar > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2ea6, #22e0ff); transition: width .25s ease; }
+      .wide { grid-column: 1 / -1; }
+      .disks { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .disk { display: flex; justify-content: space-between; gap: 12px; color: #b9a8cf; font-size: 12px; }
+      @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <h1>Система</h1>
+    <div class="sub">Локальные метрики этого компьютера. Данные не уходят на сервер.</div>
+    <div class="grid">
+      <div class="card"><div class="label">CPU</div><div class="value" id="cpu">—</div><div class="bar"><span id="cpu-bar"></span></div></div>
+      <div class="card"><div class="label">Память</div><div class="value" id="memory">—</div><div class="bar"><span id="memory-bar"></span></div></div>
+      <div class="card"><div class="label">Сеть ↓ / ↑</div><div class="value" id="network">—</div><div class="bar"><span id="network-bar"></span></div></div>
+      <div class="card"><div class="label">Процессы</div><div class="value" id="processes">—</div><div class="sub" id="uptime"></div></div>
+      <div class="card wide"><div class="label">Диски</div><div class="disks" id="disks"></div></div>
+    </div>
+    <script>
+      let previous = null;
+      let previousAt = 0;
+      const formatBytes = (value) => {
+        if (!value) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const index = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
+        return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
+      };
+      const uptime = (seconds) => {
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        return `${days ? days + ' д ' : ''}${hours} ч`;
+      };
+      async function tick() {
+        try {
+          const data = await window.__TAURI__.core.invoke('system_metrics');
+          const now = Date.now();
+          document.getElementById('cpu').textContent = `${data.cpu.toFixed(0)}%`;
+          document.getElementById('cpu-bar').style.width = `${Math.min(100, data.cpu)}%`;
+          const memory = data.memory_total ? (data.memory_used / data.memory_total) * 100 : 0;
+          document.getElementById('memory').textContent = `${formatBytes(data.memory_used)} / ${formatBytes(data.memory_total)}`;
+          document.getElementById('memory-bar').style.width = `${memory}%`;
+          if (previous) {
+            const seconds = Math.max(0.5, (now - previousAt) / 1000);
+            const down = Math.max(0, (data.network_received - previous.network_received) / seconds);
+            const up = Math.max(0, (data.network_transmitted - previous.network_transmitted) / seconds);
+            document.getElementById('network').textContent = `${formatBytes(down)}/s ↓ · ${formatBytes(up)}/s ↑`;
+            document.getElementById('network-bar').style.width = `${Math.min(100, (down + up) / 1024 / 1024)}%`;
+          }
+          previous = data;
+          previousAt = now;
+          document.getElementById('processes').textContent = data.processes;
+          document.getElementById('uptime').textContent = `Аптайм: ${uptime(data.uptime)}`;
+          document.getElementById('disks').innerHTML = data.disks.map((disk) => {
+            const used = disk.total - disk.available;
+            return `<div class="disk"><span>${disk.mount} · ${formatBytes(used)} / ${formatBytes(disk.total)}</span><span>${disk.total ? ((used / disk.total) * 100).toFixed(0) : 0}%</span></div>`;
+          }).join('');
+        } catch (error) {
+          document.getElementById('processes').textContent = 'Ошибка';
+        }
+      }
+      tick();
+      setInterval(tick, 2000);
+    </script>
+  </body>
+</html>
