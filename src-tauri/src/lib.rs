@@ -275,9 +275,7 @@ fn native_terms_dialog() -> bool {
     checkbox.show();
     dialog.show_all();
 
-    let mut accepted = false;
-
-    loop {
+    let accepted = loop {
         let response = dialog.run();
 
         if response == gtk::ResponseType::Accept && !checkbox.is_active() {
@@ -294,9 +292,8 @@ fn native_terms_dialog() -> bool {
             continue;
         }
 
-        accepted = response == gtk::ResponseType::Accept;
-        break;
-    }
+        break response == gtk::ResponseType::Accept;
+    };
 
     dialog.hide();
 
