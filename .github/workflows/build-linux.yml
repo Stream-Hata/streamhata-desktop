@@ -41,6 +41,11 @@ jobs:
             target
           key: linux-cargo-${{ hashFiles('Cargo.lock') }}
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: python3 scripts/set-version.py "${GITHUB_REF_NAME#v}"
+
       - name: Prepare updater signing key
         shell: bash
         env:
