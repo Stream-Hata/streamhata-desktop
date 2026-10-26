@@ -27,7 +27,6 @@
     "allow-restart-app",
     "allow-app-version",
     "allow-hide-to-tray",
-    "allow-toggle-mini",
     "allow-check-update",
     "allow-install-update"
   ]

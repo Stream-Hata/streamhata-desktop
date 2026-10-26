@@ -843,38 +843,11 @@ struct UpdateInfo {
     date: Option<String>,
 }
 
-fn toggle_mini_mode(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let compact = window
-            .inner_size()
-            .map(|size| size.width <= 600)
-            .unwrap_or(false);
-
-        if compact {
-            let _ = window.set_min_size(Some(LogicalSize::new(1024.0, 640.0)));
-            let _ = window.set_size(LogicalSize::new(1280.0, 800.0));
-            let _ = window.set_always_on_top(false);
-        } else {
-            let _ = window.set_min_size(Some(LogicalSize::new(360.0, 480.0)));
-            let _ = window.set_size(LogicalSize::new(420.0, 640.0));
-            let _ = window.set_always_on_top(true);
-        }
-
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
-
 #[tauri::command]
 fn hide_to_tray(app: AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }
-}
-
-#[tauri::command]
-fn toggle_mini(app: AppHandle) {
-    toggle_mini_mode(&app);
 }
 
 #[tauri::command]
@@ -1389,12 +1362,11 @@ pub fn run() {
 
             let show = MenuItem::with_id(app, "show", "Открыть StreamHata", true, None::<&str>)?;
             let system = MenuItem::with_id(app, "system", "Система", true, None::<&str>)?;
-            let mini = MenuItem::with_id(app, "mini", "Мини-режим", true, None::<&str>)?;
             let top = MenuItem::with_id(app, "top", "Поверх всех окон", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Скрыть в трей", true, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", "Проверить обновление", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &system, &mini, &top, &hide, &update, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &system, &top, &hide, &update, &quit])?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().cloned().expect("app icon"))
@@ -1410,7 +1382,6 @@ pub fn run() {
                     "system" => {
                         let _ = open_system_window(app.clone());
                     }
-                    "mini" => toggle_mini_mode(app),
                     "top" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let next = !window.is_always_on_top().unwrap_or(false);
@@ -1483,7 +1454,6 @@ pub fn run() {
             start_desktop_login,
             app_version,
             hide_to_tray,
-            toggle_mini,
             check_update,
             install_update
         ])
