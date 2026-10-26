@@ -39,7 +39,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/updater"
           keyfile="$RUNNER_TEMP/updater/updater.key"
           if [[ "$key" == *"untrusted comment"* ]]; then
-            printf '%s\n' "$key" > "$keyfile"
+            if [[ "$key" == *'\n'* && "$key" != *$'\n'* ]]; then
+              printf '%b\n' "$key" > "$keyfile"
+            else
+              printf '%s\n' "$key" > "$keyfile"
+            fi
           else
             printf '%s' "$key" | base64 -d > "$keyfile"
           fi
@@ -48,6 +52,11 @@ jobs:
             exit 1
           }
           echo "TAURI_SIGNING_PRIVATE_KEY_PATH=$keyfile" >> "$GITHUB_ENV"
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY<<__STREAMHATA_KEY__"
+            cat "$keyfile"
+            echo "__STREAMHATA_KEY__"
+          } >> "$GITHUB_ENV"
 
       - name: Build and bundle
         uses: tauri-apps/tauri-action@v0
