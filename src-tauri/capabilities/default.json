@@ -31,5 +31,11 @@
     "allow-hide-to-tray",
     "allow-check-update",
     "allow-install-update"
-  ]
+  ],
+  "remote": {
+    "urls": [
+      "https://streamhata.rdpctd.dev",
+      "https://streamhata.rdpctd.dev/*"
+    ]
+  }
 }

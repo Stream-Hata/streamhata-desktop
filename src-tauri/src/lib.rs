@@ -922,7 +922,7 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart();
 }
 
-async fn tray_check_and_update(app: AppHandle) {
+async fn tray_check_update(app: AppHandle) {
     let update = match app.updater() {
         Ok(updater) => updater.check().await,
         Err(error) => {
@@ -940,8 +940,8 @@ async fn tray_check_and_update(app: AppHandle) {
         let _ = app
             .notification()
             .builder()
-            .title("StreamHata обновлён")
-            .body("Установлена последняя доступная версия.")
+            .title("Не удалось проверить обновление")
+            .body("Попробуйте позже.")
             .show();
         return;
     };
@@ -960,32 +960,16 @@ async fn tray_check_and_update(app: AppHandle) {
     let _ = app
         .notification()
         .builder()
-        .title("Обновляем StreamHata")
-        .body(format!("Скачиваем версию {version}…"))
+        .title(format!("Доступно обновление StreamHata {version}"))
+        .body("Откройте приложение и нажмите «Обновить».")
         .show();
+    let _ = app.emit("update-available", version);
 
-    let emitter = app.clone();
-
-    if update
-        .download_and_install(
-            move |downloaded, total| {
-                let _ = emitter.emit("update-progress", (downloaded, total));
-            },
-            || {},
-        )
-        .await
-        .is_err()
-    {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Не удалось обновить StreamHata")
-            .body("Попробуйте ещё раз или обновите вручную.")
-            .show();
-        return;
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
     }
-
-    app.restart();
 }
 
 #[tauri::command]
@@ -1394,7 +1378,7 @@ pub fn run() {
                     "update" => {
                         let app = app.clone();
                         tauri::async_runtime::spawn(async move {
-                            tray_check_and_update(app).await;
+                            tray_check_update(app).await;
                         });
                     }
                     "quit" => app.exit(0),
