@@ -12,7 +12,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_notification::{Action, ActionType, NotificationExt};
-use tauri_plugin_updater::UpdaterExt;
+use tauri_plugin_updater::{Update, UpdaterExt};
 
 const SERVICE: &str = "dev.rdpctd.nameless-streamhata";
 static SYSTEM_WIDGET_ENABLED: AtomicBool = AtomicBool::new(true);
@@ -835,6 +835,35 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+async fn fetch_available_update(app: &AppHandle) -> Result<Option<Update>, String> {
+    let update = app
+        .updater()
+        .map_err(|error| error.to_string())?
+        .check()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let Some(update) = update else {
+        return Ok(None);
+    };
+
+    let response = reqwest::Client::new()
+        .head(update.download_url.as_str())
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+
+    if !response
+        .map(|response| response.status().is_success())
+        .unwrap_or(false)
+    {
+        tracing::warn!(url = %update.download_url, "update artifact is not downloadable");
+        return Ok(None);
+    }
+
+    Ok(Some(update))
+}
+
 #[derive(serde::Serialize)]
 struct UpdateInfo {
     version: String,
@@ -873,12 +902,8 @@ async fn install_update_now(app: AppHandle) -> Result<(), String> {
     }
 
     let result = async {
-        let update = app
-            .updater()
-            .map_err(|error| error.to_string())?
-            .check()
-            .await
-            .map_err(|error| error.to_string())?
+        let update = fetch_available_update(&app)
+            .await?
             .ok_or_else(|| "Обновлений нет".to_string())?;
 
         let emitter = app.clone();
@@ -1072,11 +1097,7 @@ async fn check_update_manual(app: AppHandle) -> Result<Option<UpdateInfo>, Strin
         .body("Проверяем наличие новой версии…")
         .show();
 
-    let update = app
-        .updater()
-        .map_err(|error| error.to_string())?
-        .check()
-        .await;
+    let update = fetch_available_update(&app).await;
 
     let update = match update {
         Ok(update) => update,
@@ -1119,37 +1140,26 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
 }
 
 async fn tray_check_update(app: AppHandle) {
-    let update = match app.updater() {
-        Ok(updater) => updater.check().await,
+    let update = match fetch_available_update(&app).await {
+        Ok(Some(update)) => update,
+        Ok(None) => {
+            let _ = app
+                .notification()
+                .builder()
+                .title("Обновлений нет")
+                .body("Установлена последняя версия StreamHata.")
+                .show();
+            return;
+        }
         Err(error) => {
             let _ = app
                 .notification()
                 .builder()
                 .title("Не удалось проверить обновление")
-                .body(error.to_string())
+                .body(error)
                 .show();
             return;
         }
-    };
-
-    let Ok(update) = update else {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Не удалось проверить обновление")
-            .body("Попробуйте позже.")
-            .show();
-        return;
-    };
-
-    let Some(update) = update else {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Обновлений нет")
-            .body("Установлена последняя версия StreamHata.")
-            .show();
-        return;
     };
 
     let version = update.version.clone();
