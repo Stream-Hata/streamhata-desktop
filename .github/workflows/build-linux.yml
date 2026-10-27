@@ -115,6 +115,13 @@ jobs:
           test -f "$signature"
           python3 scripts/generate-latest.py             --version "$version"             --tag "$GITHUB_REF_NAME"             --repo "$GITHUB_REPOSITORY"             --platform linux-x86_64             --artifact "$artifact"             --signature "$signature"
 
+      - name: Verify manifest artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          url=$(python3 -c "import json; print(json.load(open('latest.json'))['platforms'][next(iter(json.load(open('latest.json'))['platforms']))]['url'])")
+          curl -fsIL --retry 5 --retry-delay 3 "$url" >/dev/null
+
       - name: Upload updater manifest
         if: startsWith(github.ref, 'refs/tags/')
         env:
