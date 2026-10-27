@@ -1016,6 +1016,70 @@ fn show_update_notification(app: &AppHandle, version: &str) {
         .show();
 }
 
+async fn download_update_bytes(app: &AppHandle, update: &Update) -> Result<Vec<u8>, String> {
+    let primary = update.download_url.as_str().to_owned();
+    let fallback = update
+        .download_url
+        .path_segments()
+        .and_then(|segments| segments.last())
+        .map(|name| format!("https://streamhata.rdpctd.dev/desktop/{name}"));
+
+    let mut urls = vec![primary];
+
+    if let Some(fallback) = fallback {
+        urls.push(fallback);
+    }
+
+    let mut last_error = String::new();
+
+    for (index, url) in urls.iter().enumerate() {
+        let response = reqwest::Client::new()
+            .get(url)
+            .header(reqwest::header::ACCEPT, "application/octet-stream")
+            .timeout(std::time::Duration::from_secs(180))
+            .send()
+            .await;
+
+        let Ok(mut response) = response else {
+            last_error = format!("{url}: request failed");
+            continue;
+        };
+
+        if !response.status().is_success() {
+            last_error = format!("{url}: HTTP {}", response.status());
+            continue;
+        }
+
+        let total = response.content_length();
+        let mut bytes = Vec::with_capacity(total.unwrap_or(0) as usize);
+
+        loop {
+            match response.chunk().await {
+                Ok(Some(chunk)) => {
+                    bytes.extend_from_slice(&chunk);
+                    let _ = app.emit("update-progress", (bytes.len(), total));
+                }
+                Ok(None) => break,
+                Err(error) => {
+                    last_error = format!("{url}: {error}");
+                    bytes.clear();
+                    break;
+                }
+            }
+        }
+
+        if !bytes.is_empty() {
+            if index > 0 {
+                tracing::warn!(url, "downloaded update from fallback mirror");
+            }
+
+            return Ok(bytes);
+        }
+    }
+
+    Err(last_error)
+}
+
 async fn install_update_now(app: AppHandle) -> Result<(), String> {
     if UPDATE_INSTALLING.swap(true, Ordering::SeqCst) {
         return Err("Установка уже выполняется".to_string());
@@ -1030,17 +1094,7 @@ async fn install_update_now(app: AppHandle) -> Result<(), String> {
         let mut last_error = String::new();
 
         for attempt in 1..=3 {
-            let emitter = app.clone();
-            let downloaded = update
-                .download(
-                    move |chunk, total| {
-                        let _ = emitter.emit("update-progress", (chunk, total));
-                    },
-                    || {},
-                )
-                .await;
-
-            match downloaded {
+            match download_update_bytes(&app, &update).await {
                 Ok(bytes) => {
                     set_update_ui(&app, "installing", None, 0, 0, None);
                     update.install(bytes).map_err(|error| error.to_string())?;
@@ -1049,7 +1103,7 @@ async fn install_update_now(app: AppHandle) -> Result<(), String> {
                     return Ok(());
                 }
                 Err(error) => {
-                    last_error = error.to_string();
+                    last_error = error;
                     tracing::warn!(attempt, error = %last_error, "update download failed");
                     if attempt < 3 {
                         std::thread::sleep(std::time::Duration::from_secs(2));
