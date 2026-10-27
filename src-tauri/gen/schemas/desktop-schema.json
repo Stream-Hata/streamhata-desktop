@@ -231,6 +231,12 @@
           "markdownDescription": "Enables the install_update command without any pre-configured scope."
         },
         {
+          "description": "Enables the notify_cat command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notify-cat",
+          "markdownDescription": "Enables the notify_cat command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_changelog command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-changelog",
@@ -265,6 +271,12 @@
           "type": "string",
           "const": "allow-session-status",
           "markdownDescription": "Enables the session_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_cat_tray command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-cat-tray",
+          "markdownDescription": "Enables the set_cat_tray command without any pre-configured scope."
         },
         {
           "description": "Enables the set_system_widget_enabled command without any pre-configured scope.",
@@ -357,6 +369,12 @@
           "markdownDescription": "Denies the install_update command without any pre-configured scope."
         },
         {
+          "description": "Denies the notify_cat command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notify-cat",
+          "markdownDescription": "Denies the notify_cat command without any pre-configured scope."
+        },
+        {
           "description": "Denies the open_changelog command without any pre-configured scope.",
           "type": "string",
           "const": "deny-open-changelog",
@@ -391,6 +409,12 @@
           "type": "string",
           "const": "deny-session-status",
           "markdownDescription": "Denies the session_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_cat_tray command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-cat-tray",
+          "markdownDescription": "Denies the set_cat_tray command without any pre-configured scope."
         },
         {
           "description": "Denies the set_system_widget_enabled command without any pre-configured scope.",

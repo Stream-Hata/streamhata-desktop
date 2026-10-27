@@ -879,6 +879,45 @@ fn hide_to_tray(app: AppHandle) {
 }
 
 #[tauri::command]
+fn set_cat_tray(app: AppHandle, active: bool) {
+    let Some(tray) = app.tray_by_id("main") else {
+        return;
+    };
+
+    let icon = if active {
+        image::load_from_memory(include_bytes!("../icons/cat.png"))
+            .ok()
+            .map(|image| {
+                let image = image.to_rgba8();
+                let (width, height) = image.dimensions();
+                tauri::image::Image::new_owned(image.into_raw(), width, height)
+            })
+    } else {
+        app.default_window_icon().cloned()
+    };
+
+    if let Some(icon) = icon {
+        let _ = tray.set_icon(Some(icon));
+    }
+}
+
+#[tauri::command]
+fn notify_cat(app: AppHandle, stage: u8) {
+    let hint = match stage {
+        1 => "Кот заглянул: стрим всё ещё не запущен.",
+        2 => "Кот уже приготовил лапу для кнопки «Начать стрим».",
+        _ => "Кот состарился, ожидая стрим. Аудитория тоже.",
+    };
+
+    let _ = app
+        .notification()
+        .builder()
+        .title("Кот StreamHata")
+        .body(hint)
+        .show();
+}
+
+#[tauri::command]
 fn app_version() -> String {
     APP_VERSION.to_owned()
 }
@@ -1555,11 +1594,12 @@ pub fn run() {
             let system = MenuItem::with_id(app, "system", "Система", true, None::<&str>)?;
             let top = MenuItem::with_id(app, "top", "Поверх всех окон", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Скрыть в трей", true, None::<&str>)?;
+            let cat = MenuItem::with_id(app, "cat", "Позвать кота", true, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", "Проверить обновление", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &system, &top, &hide, &update, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &system, &top, &hide, &cat, &update, &quit])?;
 
-            TrayIconBuilder::new()
+            TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().cloned().expect("app icon"))
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -1583,6 +1623,13 @@ pub fn run() {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.hide();
                         }
+                    }
+                    "cat" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app.emit("cat-summon", ());
                     }
                     "update" => {
                         let app = app.clone();
@@ -1644,6 +1691,8 @@ pub fn run() {
             resume_session,
             start_desktop_login,
             app_version,
+            set_cat_tray,
+            notify_cat,
             hide_to_tray,
             check_update,
             check_update_manual,

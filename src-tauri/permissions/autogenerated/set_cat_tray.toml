@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-cat-tray"
+description = "Enables the set_cat_tray command without any pre-configured scope."
+commands.allow = ["set_cat_tray"]
+
+[[permission]]
+identifier = "deny-set-cat-tray"
+description = "Denies the set_cat_tray command without any pre-configured scope."
+commands.deny = ["set_cat_tray"]

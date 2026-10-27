@@ -18,6 +18,8 @@ fn main() {
             "clear_virus_mode",
             "restart_app",
             "app_version",
+            "set_cat_tray",
+            "notify_cat",
             "hide_to_tray",
             "check_update",
             "check_update_manual",

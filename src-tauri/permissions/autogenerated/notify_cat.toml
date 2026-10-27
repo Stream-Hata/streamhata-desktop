@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-notify-cat"
+description = "Enables the notify_cat command without any pre-configured scope."
+commands.allow = ["notify_cat"]
+
+[[permission]]
+identifier = "deny-notify-cat"
+description = "Denies the notify_cat command without any pre-configured scope."
+commands.deny = ["notify_cat"]
