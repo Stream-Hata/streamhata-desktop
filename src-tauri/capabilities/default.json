@@ -3,7 +3,9 @@
   "identifier": "default",
   "description": "Default desktop capabilities",
   "windows": [
-    "main"
+    "main",
+    "changelog",
+    "system"
   ],
   "permissions": [
     "core:default",
