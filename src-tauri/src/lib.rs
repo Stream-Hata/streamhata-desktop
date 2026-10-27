@@ -857,7 +857,8 @@ async fn fetch_available_update(app: &AppHandle) -> Result<Option<Update>, Strin
     };
 
     let response = reqwest::Client::new()
-        .head(update.download_url.as_str())
+        .get(update.download_url.as_str())
+        .header(reqwest::header::RANGE, "bytes=0-0")
         .timeout(std::time::Duration::from_secs(20))
         .send()
         .await;
