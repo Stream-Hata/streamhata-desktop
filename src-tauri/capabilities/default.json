@@ -30,7 +30,8 @@
     "allow-app-version",
     "allow-hide-to-tray",
     "allow-check-update",
-    "allow-install-update"
+    "allow-install-update",
+    "allow-check-update-manual"
   ],
   "remote": {
     "urls": [

@@ -1064,6 +1064,55 @@ async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
 }
 
 #[tauri::command]
+async fn check_update_manual(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let _ = app
+        .notification()
+        .builder()
+        .title("Проверяем обновления StreamHata")
+        .body("Проверяем наличие новой версии…")
+        .show();
+
+    let update = app
+        .updater()
+        .map_err(|error| error.to_string())?
+        .check()
+        .await;
+
+    let update = match update {
+        Ok(update) => update,
+        Err(error) => {
+            let _ = app
+                .notification()
+                .builder()
+                .title("Не удалось проверить обновление")
+                .body(error.to_string())
+                .show();
+
+            return Err(error.to_string());
+        }
+    };
+
+    let Some(update) = update else {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Обновлений нет")
+            .body("Установлена последняя версия StreamHata.")
+            .show();
+
+        return Ok(None);
+    };
+
+    show_update_notification(&app, &update.version);
+
+    Ok(Some(UpdateInfo {
+        version: update.version,
+        notes: update.body,
+        date: update.date.map(|value| value.to_string()),
+    }))
+}
+
+#[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
     install_update_now(app.clone()).await?;
     app.restart();
@@ -1581,6 +1630,7 @@ pub fn run() {
             app_version,
             hide_to_tray,
             check_update,
+            check_update_manual,
             install_update
         ])
         .run(tauri::generate_context!())

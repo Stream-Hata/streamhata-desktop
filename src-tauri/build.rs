@@ -20,6 +20,7 @@ fn main() {
             "app_version",
             "hide_to_tray",
             "check_update",
+            "check_update_manual",
             "install_update",
         ]),
     ))
