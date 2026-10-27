@@ -893,7 +893,13 @@ fn set_cat_tray(app: AppHandle, active: bool) {
                 tauri::image::Image::new_owned(image.into_raw(), width, height)
             })
     } else {
-        app.default_window_icon().cloned()
+        image::load_from_memory(include_bytes!("../icons/128x128.png"))
+            .ok()
+            .map(|image| {
+                let image = image.to_rgba8();
+                let (width, height) = image.dimensions();
+                tauri::image::Image::new_owned(image.into_raw(), width, height)
+            })
     };
 
     if let Some(icon) = icon {
