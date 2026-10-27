@@ -17,6 +17,15 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 const SERVICE: &str = "dev.rdpctd.nameless-streamhata";
 static SYSTEM_WIDGET_ENABLED: AtomicBool = AtomicBool::new(true);
 static UPDATE_NOTIFIED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+static UPDATE_MENU_ITEM: std::sync::Mutex<Option<MenuItem<tauri::Wry>>> =
+    std::sync::Mutex::new(None);
+static UPDATE_UI_STATE: std::sync::Mutex<UpdateUiState> = std::sync::Mutex::new(UpdateUiState {
+    phase: String::new(),
+    version: None,
+    downloaded: 0,
+    total: 0,
+    error: None,
+});
 static UPDATE_INSTALLING: AtomicBool = AtomicBool::new(false);
 const SYSTEM_OVERLAY_URL: &str = "http://127.0.0.1:17890/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -864,6 +873,57 @@ async fn fetch_available_update(app: &AppHandle) -> Result<Option<Update>, Strin
     Ok(Some(update))
 }
 
+#[derive(Clone, serde::Serialize)]
+struct UpdateUiState {
+    phase: String,
+    version: Option<String>,
+    downloaded: u64,
+    total: u64,
+    error: Option<String>,
+}
+
+fn set_update_ui(
+    app: &AppHandle,
+    phase: &str,
+    version: Option<String>,
+    downloaded: u64,
+    total: u64,
+    error: Option<String>,
+) {
+    let state = UpdateUiState {
+        phase: phase.to_owned(),
+        version: version.clone(),
+        downloaded,
+        total,
+        error,
+    };
+
+    if let Ok(mut current) = UPDATE_UI_STATE.lock() {
+        *current = state.clone();
+    }
+
+    let _ = app.emit("update-state", state);
+
+    if let Ok(guard) = UPDATE_MENU_ITEM.lock() {
+        if let Some(item) = guard.as_ref() {
+            let (label, enabled) = match phase {
+                "checking" => ("Проверяем обновление…".to_string(), false),
+                "available" => (
+                    format!("Доступно обновление {}", version.as_deref().unwrap_or("")),
+                    true,
+                ),
+                "downloading" => ("Скачиваем обновление…".to_string(), false),
+                "installing" => ("Установка обновления…".to_string(), false),
+                "restarting" => ("Перезапуск…".to_string(), false),
+                "error" => ("Ошибка обновления".to_string(), true),
+                _ => ("Проверить обновление".to_string(), true),
+            };
+            let _ = item.set_text(label);
+            let _ = item.set_enabled(enabled);
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 struct UpdateInfo {
     version: String,
@@ -924,6 +984,20 @@ fn notify_cat(app: AppHandle, stage: u8) {
 }
 
 #[tauri::command]
+fn update_ui_state() -> UpdateUiState {
+    UPDATE_UI_STATE
+        .lock()
+        .map(|state| state.clone())
+        .unwrap_or(UpdateUiState {
+            phase: String::new(),
+            version: None,
+            downloaded: 0,
+            total: 0,
+            error: None,
+        })
+}
+
+#[tauri::command]
 fn app_version() -> String {
     APP_VERSION.to_owned()
 }
@@ -951,25 +1025,40 @@ async fn install_update_now(app: AppHandle) -> Result<(), String> {
             .await?
             .ok_or_else(|| "Обновлений нет".to_string())?;
 
-        let emitter = app.clone();
-        let finish_emitter = app.clone();
+        set_update_ui(&app, "downloading", None, 0, 0, None);
+        let mut last_error = String::new();
 
-        let _ = app.emit("update-step", "downloading");
-        update
-            .download_and_install(
-                move |downloaded, total| {
-                    let _ = emitter.emit("update-progress", (downloaded, total));
-                },
-                move || {
-                    let _ = finish_emitter.emit("update-step", "installing");
-                },
-            )
-            .await
-            .map_err(|error| error.to_string())?;
+        for attempt in 1..=3 {
+            let emitter = app.clone();
+            let downloaded = update
+                .download(
+                    move |chunk, total| {
+                        let _ = emitter.emit("update-progress", (chunk, total));
+                    },
+                    || {},
+                )
+                .await;
 
-        let _ = app.emit("update-step", "restarting");
+            match downloaded {
+                Ok(bytes) => {
+                    set_update_ui(&app, "installing", None, 0, 0, None);
+                    update.install(bytes).map_err(|error| error.to_string())?;
+                    set_update_ui(&app, "restarting", None, 0, 0, None);
 
-        Ok(())
+                    return Ok(());
+                }
+                Err(error) => {
+                    last_error = error.to_string();
+                    tracing::warn!(attempt, error = %last_error, "update download failed");
+                    if attempt < 3 {
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                    }
+                }
+            }
+        }
+
+        set_update_ui(&app, "error", None, 0, 0, Some(last_error.clone()));
+        Err(format!("Не удалось скачать обновление: {last_error}"))
     }
     .await;
 
@@ -1148,11 +1237,13 @@ async fn check_update_manual(app: AppHandle) -> Result<Option<UpdateInfo>, Strin
         .body("Проверяем наличие новой версии…")
         .show();
 
+    set_update_ui(&app, "checking", None, 0, 0, None);
     let update = fetch_available_update(&app).await;
 
     let update = match update {
         Ok(update) => update,
         Err(error) => {
+            set_update_ui(&app, "error", None, 0, 0, Some(error.clone()));
             let _ = app
                 .notification()
                 .builder()
@@ -1165,6 +1256,7 @@ async fn check_update_manual(app: AppHandle) -> Result<Option<UpdateInfo>, Strin
     };
 
     let Some(update) = update else {
+        set_update_ui(&app, "idle", None, 0, 0, None);
         let _ = app
             .notification()
             .builder()
@@ -1175,6 +1267,7 @@ async fn check_update_manual(app: AppHandle) -> Result<Option<UpdateInfo>, Strin
         return Ok(None);
     };
 
+    set_update_ui(&app, "available", Some(update.version.clone()), 0, 0, None);
     show_update_notification(&app, &update.version);
 
     Ok(Some(UpdateInfo {
@@ -1214,6 +1307,7 @@ async fn tray_check_update(app: AppHandle) {
     };
 
     let version = update.version.clone();
+    set_update_ui(&app, "available", Some(version.clone()), 0, 0, None);
     show_update_notification(&app, &version);
     let _ = app.emit("update-available", version);
 
@@ -1604,6 +1698,7 @@ pub fn run() {
             let update = MenuItem::with_id(app, "update", "Проверить обновление", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &system, &top, &hide, &cat, &update, &quit])?;
+            *UPDATE_MENU_ITEM.lock().unwrap() = Some(update.clone());
 
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().cloned().expect("app icon"))
@@ -1697,6 +1792,7 @@ pub fn run() {
             resume_session,
             start_desktop_login,
             app_version,
+            update_ui_state,
             set_cat_tray,
             notify_cat,
             hide_to_tray,

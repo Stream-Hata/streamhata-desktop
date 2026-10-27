@@ -33,7 +33,8 @@
     "allow-install-update",
     "allow-check-update-manual",
     "allow-set-cat-tray",
-    "allow-notify-cat"
+    "allow-notify-cat",
+    "allow-update-ui-state"
   ],
   "remote": {
     "urls": [

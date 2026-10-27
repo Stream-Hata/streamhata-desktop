@@ -23,6 +23,7 @@ fn main() {
             "hide_to_tray",
             "check_update",
             "check_update_manual",
+            "update_ui_state",
             "install_update",
         ]),
     ))
