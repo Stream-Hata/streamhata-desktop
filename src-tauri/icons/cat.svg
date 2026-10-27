@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs><linearGradient id="f" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffc078"/><stop offset="1" stop-color="#d9793a"/></linearGradient></defs>
+  <path d="M28 48 24 12l30 20h20l30-20-4 36c10 10 16 24 16 40 0 26-22 40-44 40S28 114 28 88c0-16 6-30 16-40z" fill="url(#f)" stroke="#3a1f2e" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M38 38 36 22l18 12zM90 38l2-16-18 12z" fill="#f5a3a8" stroke="#3a1f2e" stroke-width="3"/>
+  <ellipse cx="50" cy="66" rx="9" ry="7" fill="#b8ff7a" stroke="#3a1f2e" stroke-width="3"/><ellipse cx="78" cy="66" rx="9" ry="7" fill="#b8ff7a" stroke="#3a1f2e" stroke-width="3"/>
+  <ellipse cx="50" cy="66" rx="2.5" ry="6" fill="#14251c"/><ellipse cx="78" cy="66" rx="2.5" ry="6" fill="#14251c"/>
+  <path d="m60 78 4 3 4-3-4-3z" fill="#e77982" stroke="#3a1f2e" stroke-width="2"/><path d="M64 83v6M64 89c-4 4-8 4-11 0M64 89c4 4 8 4 11 0" fill="none" stroke="#3a1f2e" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M45 78 20 74M46 85 20 89M83 78l25-4M82 85l25 4" fill="none" stroke="#3a1f2e" stroke-width="2" stroke-linecap="round"/>
+</svg>
