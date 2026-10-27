@@ -1284,9 +1284,11 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
 }
 
 async fn tray_check_update(app: AppHandle) {
+    set_update_ui(&app, "checking", None, 0, 0, None);
     let update = match fetch_available_update(&app).await {
         Ok(Some(update)) => update,
         Ok(None) => {
+            set_update_ui(&app, "idle", None, 0, 0, None);
             let _ = app
                 .notification()
                 .builder()
@@ -1296,6 +1298,7 @@ async fn tray_check_update(app: AppHandle) {
             return;
         }
         Err(error) => {
+            set_update_ui(&app, "error", None, 0, 0, Some(error.clone()));
             let _ = app
                 .notification()
                 .builder()
