@@ -907,16 +907,22 @@ async fn install_update_now(app: AppHandle) -> Result<(), String> {
             .ok_or_else(|| "Обновлений нет".to_string())?;
 
         let emitter = app.clone();
+        let finish_emitter = app.clone();
 
+        let _ = app.emit("update-step", "downloading");
         update
             .download_and_install(
                 move |downloaded, total| {
                     let _ = emitter.emit("update-progress", (downloaded, total));
                 },
-                || {},
+                move || {
+                    let _ = finish_emitter.emit("update-step", "installing");
+                },
             )
             .await
             .map_err(|error| error.to_string())?;
+
+        let _ = app.emit("update-step", "restarting");
 
         Ok(())
     }
