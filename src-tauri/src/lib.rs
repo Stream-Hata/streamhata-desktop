@@ -11,12 +11,13 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
-use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_notification::{Action, ActionType, NotificationExt};
 use tauri_plugin_updater::UpdaterExt;
 
 const SERVICE: &str = "dev.rdpctd.nameless-streamhata";
 static SYSTEM_WIDGET_ENABLED: AtomicBool = AtomicBool::new(true);
 static UPDATE_NOTIFIED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+static UPDATE_INSTALLING: AtomicBool = AtomicBool::new(false);
 const SYSTEM_OVERLAY_URL: &str = "http://127.0.0.1:17890/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TERMS_VERSION: &str = "1.2";
@@ -853,6 +854,179 @@ fn app_version() -> String {
     APP_VERSION.to_owned()
 }
 
+fn show_update_notification(app: &AppHandle, version: &str) {
+    let _ = UPDATE_NOTIFIED
+        .lock()
+        .map(|mut value| *value = Some(version.to_owned()));
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("Доступно обновление StreamHata {version}"))
+        .body("Нажмите «Обновить», чтобы установить обновление.")
+        .action_type_id("update-available")
+        .show();
+}
+
+async fn install_update_now(app: AppHandle) -> Result<(), String> {
+    if UPDATE_INSTALLING.swap(true, Ordering::SeqCst) {
+        return Err("Установка уже выполняется".to_string());
+    }
+
+    let result = async {
+        let update = app
+            .updater()
+            .map_err(|error| error.to_string())?
+            .check()
+            .await
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "Обновлений нет".to_string())?;
+
+        let emitter = app.clone();
+
+        update
+            .download_and_install(
+                move |downloaded, total| {
+                    let _ = emitter.emit("update-progress", (downloaded, total));
+                },
+                || {},
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+    .await;
+
+    if result.is_err() {
+        UPDATE_INSTALLING.store(false, Ordering::SeqCst);
+    }
+
+    result
+}
+
+#[cfg(target_os = "linux")]
+fn native_update_confirm(version: &str) -> bool {
+    use gtk::prelude::*;
+
+    let text =
+        format!("Установить обновление StreamHata {version}? Приложение будет перезапущено.");
+    let dialog = gtk::MessageDialog::new(
+        None::<&gtk::Window>,
+        gtk::DialogFlags::MODAL,
+        gtk::MessageType::Question,
+        gtk::ButtonsType::None,
+        &text,
+    );
+    dialog.set_title("Обновление StreamHata");
+    dialog.add_button("Установить", gtk::ResponseType::Accept);
+    dialog.add_button("Отмена", gtk::ResponseType::Reject);
+    dialog.show_all();
+    dialog.present();
+    let response = dialog.run();
+    dialog.close();
+
+    response == gtk::ResponseType::Accept
+}
+
+#[cfg(target_os = "windows")]
+fn native_update_confirm(version: &str) -> bool {
+    use windows::core::w;
+    use windows::Win32::UI::Controls::{
+        TaskDialogIndirect, TASKDIALOGCONFIG, TASKDIALOG_BUTTON, TDF_ALLOW_DIALOG_CANCELLATION,
+        TDF_SIZE_TO_CONTENT,
+    };
+
+    let buttons = [
+        TASKDIALOG_BUTTON {
+            nButtonID: 300,
+            pszButtonText: w!("Установить"),
+        },
+        TASKDIALOG_BUTTON {
+            nButtonID: 301,
+            pszButtonText: w!("Отмена"),
+        },
+    ];
+    let text = HSTRING::from(format!(
+        "Установить обновление StreamHata {version}? Приложение будет перезапущено."
+    ));
+    let config = TASKDIALOGCONFIG {
+        cbSize: std::mem::size_of::<TASKDIALOGCONFIG>() as u32,
+        dwFlags: TDF_ALLOW_DIALOG_CANCELLATION | TDF_SIZE_TO_CONTENT,
+        pszWindowTitle: w!("Обновление StreamHata"),
+        pszMainInstruction: w!("Установить обновление?"),
+        pszContent: PCWSTR::from_raw(text.as_ptr()),
+        cButtons: buttons.len() as u32,
+        pButtons: buttons.as_ptr(),
+        ..Default::default()
+    };
+    let mut button = 0;
+    let _ = unsafe { TaskDialogIndirect(&config, Some(&mut button), None, None) };
+
+    button == 300
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn native_update_confirm(_version: &str) -> bool {
+    false
+}
+
+fn start_update_poller(app: AppHandle) {
+    thread::spawn(move || {
+        thread::sleep(std::time::Duration::from_secs(15));
+
+        loop {
+            let handle = app.clone();
+
+            tauri::async_runtime::block_on(async move {
+                let _ = check_update(handle).await;
+            });
+
+            thread::sleep(std::time::Duration::from_secs(30 * 60));
+        }
+    });
+}
+
+fn register_update_actions(app: &AppHandle) {
+    let action_type = ActionType::builder("update-available")
+        .actions(vec![Action::builder("update", "Обновить").build()])
+        .build();
+    let _ = app.notification().register_action_types(vec![action_type]);
+
+    let handle = app.clone();
+    let _ = app.notification().on_action(move |action| {
+        let app = handle.clone();
+        let version = UPDATE_NOTIFIED
+            .lock()
+            .ok()
+            .and_then(|value| value.clone())
+            .unwrap_or_default();
+
+        if action.action_id() == "update" {
+            let dialog_app = app.clone();
+
+            let _ = app.run_on_main_thread(move || {
+                if native_update_confirm(&version) {
+                    tauri::async_runtime::spawn(async move {
+                        let _ = install_update_now(dialog_app).await;
+                    });
+                }
+            });
+
+            return;
+        }
+
+        if action.action_id() == "tap" {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+
+            let _ = app.emit("update-available", version);
+        }
+    });
+}
+
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
     let update = app
@@ -879,15 +1053,7 @@ async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
         .unwrap_or(false);
 
     if should_notify {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Доступно обновление StreamHata")
-            .body(format!(
-                "Версия {} уже доступна. Откройте приложение, чтобы обновиться.",
-                update.version
-            ))
-            .show();
+        show_update_notification(&app, &update.version);
     }
 
     Ok(Some(UpdateInfo {
@@ -899,26 +1065,7 @@ async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
 
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
-    let update = app
-        .updater()
-        .map_err(|error| error.to_string())?
-        .check()
-        .await
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| "Обновлений нет".to_string())?;
-
-    let emitter = app.clone();
-
-    update
-        .download_and_install(
-            move |downloaded, total| {
-                let _ = emitter.emit("update-progress", (downloaded, total));
-            },
-            || {},
-        )
-        .await
-        .map_err(|error| error.to_string())?;
-
+    install_update_now(app.clone()).await?;
     app.restart();
 }
 
@@ -957,12 +1104,7 @@ async fn tray_check_update(app: AppHandle) {
     };
 
     let version = update.version.clone();
-    let _ = app
-        .notification()
-        .builder()
-        .title(format!("Доступно обновление StreamHata {version}"))
-        .body("Откройте приложение и нажмите «Обновить».")
-        .show();
+    show_update_notification(&app, &version);
     let _ = app.emit("update-available", version);
 
     if let Some(window) = app.get_webview_window("main") {
@@ -1252,6 +1394,8 @@ pub fn run() {
                 }
             }
 
+            register_update_actions(app.handle());
+            start_update_poller(app.handle().clone());
             let app_for_nav = app.handle().clone();
             let virus_mode = onboarding_state(app.handle()).virus;
             let init_script = format!(
