@@ -267,6 +267,12 @@
           "markdownDescription": "Enables the save_session command without any pre-configured scope."
         },
         {
+          "description": "Enables the save_text_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-text-file",
+          "markdownDescription": "Enables the save_text_file command without any pre-configured scope."
+        },
+        {
           "description": "Enables the session_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-session-status",
@@ -409,6 +415,12 @@
           "type": "string",
           "const": "deny-save-session",
           "markdownDescription": "Denies the save_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_text_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-text-file",
+          "markdownDescription": "Denies the save_text_file command without any pre-configured scope."
         },
         {
           "description": "Denies the session_status command without any pre-configured scope.",
