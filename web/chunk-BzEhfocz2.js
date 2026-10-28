@@ -1,0 +1,1 @@
+function e(n){return n?`rgg-sync/catalog/image?url=${encodeURIComponent(n)}`:``}export{e as t};
