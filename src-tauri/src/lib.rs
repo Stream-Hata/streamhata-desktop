@@ -723,12 +723,16 @@ fn save_session(token: String) -> Result<(), String> {
 struct ExchangeResponse {
     #[serde(rename = "refreshToken")]
     refresh_token: String,
+    #[serde(rename = "sessionToken")]
+    session_token: Option<String>,
     #[serde(rename = "bridgeCode")]
     bridge_code: String,
 }
 
 #[derive(Deserialize)]
 struct ResumeResponse {
+    #[serde(rename = "sessionToken")]
+    session_token: Option<String>,
     #[serde(rename = "bridgeCode")]
     bridge_code: String,
 }
@@ -757,6 +761,9 @@ fn resume_session(app: AppHandle) -> Result<bool, String> {
     let resume = response
         .json::<ResumeResponse>()
         .map_err(|error| error.to_string())?;
+    if let Some(session_token) = &resume.session_token {
+        let _ = entry()?.set_password(session_token);
+    }
     let bridge = format!(
         "https://streamhata.rdpctd.dev/rgg-sync/desktop/login?code={}",
         resume.bridge_code
@@ -822,10 +829,11 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
             return;
         };
 
+        let session_token = exchange.session_token.unwrap_or(exchange.refresh_token);
         if entry()
             .and_then(|entry| {
                 entry
-                    .set_password(&exchange.refresh_token)
+                    .set_password(&session_token)
                     .map_err(|error| error.to_string())
             })
             .is_err()

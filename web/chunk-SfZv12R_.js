@@ -1,0 +1,1 @@
+var t=`https://github.com/Stream-Hata/streamhata-desktop/releases/latest`;var e=`https://www.twitch.tv/namelessadventure`;export{t as n,e as t};

@@ -1,0 +1,1 @@
+import{Qt as _,zn as he}from"./chunk-CSGXFc6z.js";import{u as bt}from"./chunk-CXLy7SP8.js";var a=class t{http=_(bt);getSnapshot(){return this.http.get(`rgg-sync/donations`)}getDonationAlertsAuthUrl(){return this.http.get(`rgg-sync/donations/donationalerts/auth`)}static ɵfac=function(e){return new(e||t)};static ɵprov=he({token:t,factory:t.ɵfac,providedIn:`root`})};export{a as t};

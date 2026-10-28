@@ -1,0 +1,1 @@
+import{en as _e,in as ad}from"./chunk-CSGXFc6z.js";import{v as yn}from"./chunk-CXLy7SP8.js";import{Ct as jt}from"./chunk-DvrekMiU.js";function c(r,e,m=[]){let o=new jt(r(),{nonNullable:!0,validators:m}),f=e.get(_e);return o.valueChanges.pipe(yn(f)).subscribe(t=>r.set(t)),ad(()=>{let t=r();o.value!==t&&o.setValue(t,{emitEvent:!1})},{injector:e}),o}export{c as t};
