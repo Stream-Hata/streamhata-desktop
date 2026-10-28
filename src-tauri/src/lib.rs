@@ -1038,8 +1038,8 @@ async fn obs_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-fn obs_disconnect() {
-    obs::disconnect();
+async fn obs_disconnect() {
+    obs::disconnect().await;
 }
 
 #[tauri::command]

@@ -2,15 +2,28 @@ use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::sync::Mutex;
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
-static CREDENTIALS: Mutex<Option<(String, String)>> = Mutex::new(None);
+static CLIENT: tokio::sync::Mutex<Option<Client>> = tokio::sync::Mutex::const_new(None);
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+struct Client {
+    url: String,
+    password: String,
+    socket: Socket,
+}
+
+async fn open_client(url: &str, password: &str) -> Result<Client, String> {
+    Ok(Client {
+        url: url.to_string(),
+        password: password.to_string(),
+        socket: open(url, password).await?,
+    })
+}
 
 async fn next_json(socket: &mut Socket) -> Result<Value, String> {
     loop {
@@ -112,27 +125,11 @@ async fn request(socket: &mut Socket, request_type: &str, data: Value) -> Result
     }
 }
 
-pub async fn connect(url: String, password: String) -> Result<Value, String> {
-    let status = status_with(&url, &password).await?;
-    *CREDENTIALS.lock().map_err(|_| "OBS state poisoned")? = Some((url, password));
-    Ok(status)
-}
-
-pub async fn status() -> Result<Value, String> {
-    let (url, password) = CREDENTIALS
-        .lock()
-        .map_err(|_| "OBS state poisoned")?
-        .clone()
-        .ok_or_else(|| "OBS WebSocket не подключён".to_string())?;
-    status_with(&url, &password).await
-}
-
-async fn status_with(url: &str, password: &str) -> Result<Value, String> {
-    let mut socket = open(url, password).await?;
-    let scene_list = request(&mut socket, "GetSceneList", json!({})).await?;
-    let input_list = request(&mut socket, "GetInputList", json!({})).await?;
-    let stream = request(&mut socket, "GetStreamStatus", json!({})).await?;
-    let record = request(&mut socket, "GetRecordStatus", json!({})).await?;
+async fn status_with(socket: &mut Socket, url: &str) -> Result<Value, String> {
+    let scene_list = request(socket, "GetSceneList", json!({})).await?;
+    let input_list = request(socket, "GetInputList", json!({})).await?;
+    let stream = request(socket, "GetStreamStatus", json!({})).await?;
+    let record = request(socket, "GetRecordStatus", json!({})).await?;
     let scenes = scene_list
         .get("scenes")
         .and_then(Value::as_array)
@@ -165,27 +162,75 @@ async fn status_with(url: &str, password: &str) -> Result<Value, String> {
     }))
 }
 
+pub async fn connect(url: String, password: String) -> Result<Value, String> {
+    let mut client = open_client(&url, &password).await?;
+    let status = status_with(&mut client.socket, &client.url).await?;
+    *CLIENT.lock().await = Some(client);
+    Ok(status)
+}
+
+async fn reconnect(guard: &mut Option<Client>) -> Result<(), String> {
+    let (url, password) = guard
+        .as_ref()
+        .map(|client| (client.url.clone(), client.password.clone()))
+        .ok_or_else(|| "OBS WebSocket не подключён".to_string())?;
+    *guard = Some(open_client(&url, &password).await?);
+    Ok(())
+}
+
+async fn run_status(guard: &mut Option<Client>) -> Result<Value, String> {
+    let Some(client) = guard.as_mut() else {
+        return Err("OBS WebSocket не подключён".to_string());
+    };
+    match status_with(&mut client.socket, &client.url).await {
+        Ok(status) => Ok(status),
+        Err(_) => {
+            reconnect(guard).await?;
+            let client = guard.as_mut().expect("client reconnected");
+            status_with(&mut client.socket, &client.url).await
+        }
+    }
+}
+
+pub async fn status() -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    run_status(&mut guard).await
+}
+
 pub async fn scene(scene: String) -> Result<Value, String> {
-    let (url, password) = credentials()?;
-    let mut socket = open(&url, &password).await?;
+    let mut guard = CLIENT.lock().await;
+    let result = match guard.as_mut() {
+        Some(client) => {
+            request(
+                &mut client.socket,
+                "SetCurrentProgramScene",
+                json!({ "sceneName": scene }),
+            )
+            .await
+        }
+        None => Err("OBS WebSocket не подключён".to_string()),
+    };
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    let client = guard.as_mut().expect("client reconnected");
     request(
-        &mut socket,
+        &mut client.socket,
         "SetCurrentProgramScene",
         json!({ "sceneName": scene }),
     )
     .await
 }
 
-pub async fn mute(input: String) -> Result<Value, String> {
-    let (url, password) = credentials()?;
-    let mut socket = open(&url, &password).await?;
-    let current = request(&mut socket, "GetInputMute", json!({ "inputName": input })).await?;
+async fn mute_once(socket: &mut Socket, input: &str) -> Result<Value, String> {
+    let current = request(socket, "GetInputMute", json!({ "inputName": input })).await?;
     let muted = !current
         .get("inputMuted")
         .and_then(Value::as_bool)
         .unwrap_or(false);
     request(
-        &mut socket,
+        socket,
         "SetInputMute",
         json!({ "inputName": input, "inputMuted": muted }),
     )
@@ -193,9 +238,21 @@ pub async fn mute(input: String) -> Result<Value, String> {
     Ok(json!({ "muted": muted }))
 }
 
+pub async fn mute(input: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let result = match guard.as_mut() {
+        Some(client) => mute_once(&mut client.socket, &input).await,
+        None => Err("OBS WebSocket не подключён".to_string()),
+    };
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    let client = guard.as_mut().expect("client reconnected");
+    mute_once(&mut client.socket, &input).await
+}
+
 pub async fn output(output: String, action: String) -> Result<Value, String> {
-    let (url, password) = credentials()?;
-    let mut socket = open(&url, &password).await?;
     let request_type = match (output.as_str(), action.as_str()) {
         ("stream", "stop") => "StopStream",
         ("stream", _) => "StartStream",
@@ -203,19 +260,19 @@ pub async fn output(output: String, action: String) -> Result<Value, String> {
         ("record", _) => "StartRecord",
         _ => "SaveReplayBuffer",
     };
-    request(&mut socket, request_type, json!({})).await
-}
-
-pub fn disconnect() {
-    if let Ok(mut credentials) = CREDENTIALS.lock() {
-        *credentials = None;
+    let mut guard = CLIENT.lock().await;
+    let result = match guard.as_mut() {
+        Some(client) => request(&mut client.socket, request_type, json!({})).await,
+        None => Err("OBS WebSocket не подключён".to_string()),
+    };
+    if result.is_ok() {
+        return result;
     }
+    reconnect(&mut guard).await?;
+    let client = guard.as_mut().expect("client reconnected");
+    request(&mut client.socket, request_type, json!({})).await
 }
 
-fn credentials() -> Result<(String, String), String> {
-    CREDENTIALS
-        .lock()
-        .map_err(|_| "OBS state poisoned")?
-        .clone()
-        .ok_or_else(|| "OBS WebSocket не подключён".to_string())
+pub async fn disconnect() {
+    *CLIENT.lock().await = None;
 }
