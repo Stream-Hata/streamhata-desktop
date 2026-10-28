@@ -747,7 +747,10 @@ fn resume_session(app: AppHandle) -> Result<bool, String> {
         return Ok(false);
     }
 
-    let response = reqwest::blocking::Client::new()
+    let response = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(12))
+        .build()
+        .map_err(|error| error.to_string())?
         .post("https://streamhata.rdpctd.dev/rgg-sync/desktop/resume")
         .bearer_auth(&token)
         .send()
@@ -778,6 +781,30 @@ fn resume_session(app: AppHandle) -> Result<bool, String> {
     Ok(true)
 }
 
+fn resume_or_login(app: AppHandle) {
+    thread::spawn(move || {
+        for _ in 0..10 {
+            if resume_session(app.clone()).unwrap_or(false) {
+                return;
+            }
+
+            thread::sleep(std::time::Duration::from_millis(500));
+        }
+
+        let _ = start_desktop_login(app);
+    });
+}
+
+fn navigate_login(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.navigate(
+            "https://streamhata.rdpctd.dev/login"
+                .parse()
+                .expect("valid login url"),
+        );
+    }
+}
+
 #[tauri::command]
 fn start_desktop_login(app: AppHandle) -> Result<(), String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
@@ -788,6 +815,7 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
     let auth_url = format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}");
 
     open::that(&auth_url).map_err(|error| error.to_string())?;
+    navigate_login(&app);
 
     thread::spawn(move || {
         let Ok((mut stream, _)) = listener.accept() else {
@@ -815,6 +843,7 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
         let _ = stream.write_all(response.as_bytes());
 
         let Some(code) = code else {
+            navigate_login(&app);
             return;
         };
 
@@ -826,6 +855,7 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
             .and_then(|response| response.json::<ExchangeResponse>());
 
         let Ok(exchange) = response else {
+            navigate_login(&app);
             return;
         };
 
@@ -838,6 +868,7 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
             })
             .is_err()
         {
+            navigate_login(&app);
             return;
         }
 
@@ -848,6 +879,8 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
 
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.navigate(bridge.parse().expect("valid bridge url"));
+            let _ = window.show();
+            let _ = window.set_focus();
         }
     });
 
@@ -1751,6 +1784,8 @@ pub fn run() {
             if onboarding_state(app.handle()).virus {
                 let _ = main.set_title("StreamHata - очень опасный вирус");
             }
+
+            resume_or_login(app.handle().clone());
 
             let _splash =
                 WebviewWindowBuilder::new(app, "splash", WebviewUrl::App("splash.html".into()))
