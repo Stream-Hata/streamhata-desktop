@@ -20,6 +20,7 @@
     "allow-system-overlay-url",
     "allow-open-system-window",
     "allow-resume-session",
+    "allow-save-text-file",
     "allow-start-desktop-login",
     "allow-show-splash",
     "allow-open-changelog",

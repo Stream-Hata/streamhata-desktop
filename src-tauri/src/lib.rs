@@ -1028,6 +1028,22 @@ fn notify_cat(app: AppHandle, stage: u8) {
 }
 
 #[tauri::command]
+async fn save_text_file(name: String, text: String) -> Result<bool, String> {
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        rfd::FileDialog::new().set_file_name(&name).save_file()
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+
+    let Some(path) = path else {
+        return Ok(false);
+    };
+
+    std::fs::write(path, text).map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 async fn obs_connect(url: String, password: String) -> Result<serde_json::Value, String> {
     obs::connect(url, password).await
 }
@@ -1924,6 +1940,7 @@ pub fn run() {
             restart_app,
             resume_session,
             start_desktop_login,
+            save_text_file,
             app_version,
             update_ui_state,
             set_cat_tray,
