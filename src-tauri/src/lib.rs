@@ -1,3 +1,5 @@
+mod obs;
+
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -985,6 +987,36 @@ fn notify_cat(app: AppHandle, stage: u8) {
 }
 
 #[tauri::command]
+async fn obs_connect(url: String, password: String) -> Result<serde_json::Value, String> {
+    obs::connect(url, password).await
+}
+
+#[tauri::command]
+async fn obs_status() -> Result<serde_json::Value, String> {
+    obs::status().await
+}
+
+#[tauri::command]
+fn obs_disconnect() {
+    obs::disconnect();
+}
+
+#[tauri::command]
+async fn obs_scene(scene: String) -> Result<serde_json::Value, String> {
+    obs::scene(scene).await
+}
+
+#[tauri::command]
+async fn obs_mute(input: String) -> Result<serde_json::Value, String> {
+    obs::mute(input).await
+}
+
+#[tauri::command]
+async fn obs_output(output: String, action: String) -> Result<serde_json::Value, String> {
+    obs::output(output, action).await
+}
+
+#[tauri::command]
 fn update_ui_state() -> UpdateUiState {
     UPDATE_UI_STATE
         .lock()
@@ -1856,7 +1888,13 @@ pub fn run() {
             hide_to_tray,
             check_update,
             check_update_manual,
-            install_update
+            install_update,
+            obs_connect,
+            obs_status,
+            obs_disconnect,
+            obs_scene,
+            obs_mute,
+            obs_output
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
