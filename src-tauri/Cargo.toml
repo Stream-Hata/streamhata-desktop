@@ -1,6 +1,6 @@
 [package]
 name = "nameless-streamhata-desktop"
-version = "0.7.74-pre-alpha"
+version = "0.7.75-pre-alpha"
 description = "Nameless StreamHata desktop shell"
 edition = "2021"
 license = "MIT"
