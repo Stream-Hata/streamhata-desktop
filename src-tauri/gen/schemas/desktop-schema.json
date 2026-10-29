@@ -237,6 +237,42 @@
           "markdownDescription": "Enables the notify_cat command without any pre-configured scope."
         },
         {
+          "description": "Enables the obs_connect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-connect",
+          "markdownDescription": "Enables the obs_connect command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_disconnect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-disconnect",
+          "markdownDescription": "Enables the obs_disconnect command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_mute command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-mute",
+          "markdownDescription": "Enables the obs_mute command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_output command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-output",
+          "markdownDescription": "Enables the obs_output command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene",
+          "markdownDescription": "Enables the obs_scene command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-status",
+          "markdownDescription": "Enables the obs_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_changelog command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-changelog",
@@ -385,6 +421,42 @@
           "type": "string",
           "const": "deny-notify-cat",
           "markdownDescription": "Denies the notify_cat command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_connect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-connect",
+          "markdownDescription": "Denies the obs_connect command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_disconnect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-disconnect",
+          "markdownDescription": "Denies the obs_disconnect command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_mute command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-mute",
+          "markdownDescription": "Denies the obs_mute command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_output command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-output",
+          "markdownDescription": "Denies the obs_output command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene",
+          "markdownDescription": "Denies the obs_scene command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-status",
+          "markdownDescription": "Denies the obs_status command without any pre-configured scope."
         },
         {
           "description": "Denies the open_changelog command without any pre-configured scope.",

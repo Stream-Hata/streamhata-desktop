@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-obs-disconnect"
+description = "Enables the obs_disconnect command without any pre-configured scope."
+commands.allow = ["obs_disconnect"]
+
+[[permission]]
+identifier = "deny-obs-disconnect"
+description = "Denies the obs_disconnect command without any pre-configured scope."
+commands.deny = ["obs_disconnect"]

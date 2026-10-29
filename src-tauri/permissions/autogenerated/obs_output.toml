@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-obs-output"
+description = "Enables the obs_output command without any pre-configured scope."
+commands.allow = ["obs_output"]
+
+[[permission]]
+identifier = "deny-obs-output"
+description = "Denies the obs_output command without any pre-configured scope."
+commands.deny = ["obs_output"]
