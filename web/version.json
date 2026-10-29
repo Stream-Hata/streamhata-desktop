@@ -1,11 +1,8 @@
 {
-  "version": "0.8.11-pre-alpha",
-  "build": "2026-10-29T16:18:22.354Z",
+  "version": "0.9.2-pre-alpha",
+  "build": "2026-10-29T18:28:44.291Z",
   "notes": [
-    "Каталог из 218 причин feedback по Backend/Frontend/Desktop.",
-    "Taiga-дропдауны причины с поиском.",
-    "Feedback-бот: список issue и смена состояния.",
-    "Issue создаются от StreamHata App с assignee p7x_dev.",
-    "Feedback-конфиг хранится в OpenBao."
+    "Feedback: проект выбирается по причине, описание через TuiEditor, форма не выходит за контейнер.",
+    "Telegram: ответы только в привязанных чатах."
   ]
 }

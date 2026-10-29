@@ -1,0 +1,1 @@
+import{Kb as i}from"./chunk-NZ6UXBKC.js";import"./chunk-7CGTOI24.js";function e(t){return t.isActive("bulletList")||t.isActive("orderedList")||t.isActive("taskList")}var n=i.create({name:"indent",addKeyboardShortcuts(){return{Tab:()=>e(this.editor)?!1:this.editor.commands.insertContent("	")}}});export{n as TuiTabExtension,e as tuiIsListActive};

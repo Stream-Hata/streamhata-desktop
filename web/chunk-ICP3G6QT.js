@@ -1,0 +1,1 @@
+import{ac as t}from"./chunk-NZ6UXBKC.js";import"./chunk-7CGTOI24.js";var r=t.create({name:"text",group:"inline",parseMarkdown:e=>({type:"text",text:e.text||""}),renderMarkdown:e=>e.text||""}),n=r;export{r as Text,n as default};
