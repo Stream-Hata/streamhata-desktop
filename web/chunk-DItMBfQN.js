@@ -1,0 +1,1 @@
+import{gi as yd,pt as Me}from"./chunk-BK-sdeEY.js";import{p as nt}from"./chunk-CTvhkMF9.js";import{j as St}from"./chunk-vOhXtZBn.js";function c(r,e,m=[]){let o=new St(r(),{nonNullable:!0,validators:m}),f=e.get(Me);return o.valueChanges.pipe(nt(f)).subscribe(t=>r.set(t)),yd(()=>{let t=r();o.value!==t&&o.setValue(t,{emitEvent:!1})},{injector:e}),o}export{c as t};

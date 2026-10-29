@@ -1,0 +1,1 @@
+import{sn as vg}from"./chunk-Dw3u8hcH.js";var r=vg.create({name:`text`,group:`inline`,parseMarkdown:e=>({type:`text`,text:e.text||``}),renderMarkdown:e=>e.text||``});export{r as Text};

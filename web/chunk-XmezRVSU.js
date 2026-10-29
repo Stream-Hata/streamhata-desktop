@@ -1,0 +1,1 @@
+import{tt as Vd}from"./chunk-Dw3u8hcH.js";import{t as Gt}from"./chunk-BT8IBcI1.js";var s=Gt.extend({renderHTML({HTMLAttributes:i}){let t=Vd(this.options.HTMLAttributes,i);return t.colwidth&&(t.style=`width: ${t.colwidth}px; ${t.style}`),[`td`,t,0]}});export{s as TuiTableCell};
