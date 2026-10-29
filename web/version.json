@@ -1,10 +1,11 @@
 {
-  "version": "0.8.9-pre-alpha",
-  "build": "2026-10-29T15:46:36.217Z",
+  "version": "0.8.11-pre-alpha",
+  "build": "2026-10-29T16:18:22.354Z",
   "notes": [
-    "Feedback: Taiga-дропдауны области, типа и причины с поиском.",
-    "OBS: создание сцен и drag&drop перестановка.",
-    "Telegram: полный список действий в редакторе.",
-    "OBS: источники выбранной сцены."
+    "Каталог из 218 причин feedback по Backend/Frontend/Desktop.",
+    "Taiga-дропдауны причины с поиском.",
+    "Feedback-бот: список issue и смена состояния.",
+    "Issue создаются от StreamHata App с assignee p7x_dev.",
+    "Feedback-конфиг хранится в OpenBao."
   ]
 }
