@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.8.7-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Добавлено",
+        "items": [
+          {
+            "text": "WebGL-попап с проверкой WebGL2 и инструкцией для OBS."
+          },
+          {
+            "text": "Prometheus endpoint `/rgg-sync/prometheus`."
+          }
+        ]
+      },
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Порог доверия AI и дефолтные команды Telegram."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.8.6-pre-alpha",
     "date": "2026-10-29",
     "sections": [
