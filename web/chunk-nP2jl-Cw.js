@@ -1,0 +1,1 @@
+import{Yn as hd,tt as Me}from"./chunk-DnUhDadi.js";import{l as Xe}from"./chunk-OVA1LElo.js";import{in as zt}from"./chunk-Dxan6L0f.js";function c(r,e,m=[]){let o=new zt(r(),{nonNullable:!0,validators:m}),f=e.get(Me);return o.valueChanges.pipe(Xe(f)).subscribe(t=>r.set(t)),hd(()=>{let t=r();o.value!==t&&o.setValue(t,{emitEvent:!1})},{injector:e}),o}export{c as t};

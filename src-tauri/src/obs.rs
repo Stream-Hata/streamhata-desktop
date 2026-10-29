@@ -128,6 +128,16 @@ async fn request(socket: &mut Socket, request_type: &str, data: Value) -> Result
 async fn status_with(socket: &mut Socket, url: &str) -> Result<Value, String> {
     let scene_list = request(socket, "GetSceneList", json!({})).await?;
     let input_list = request(socket, "GetInputList", json!({})).await?;
+    let current_scene = scene_list
+        .get("currentProgramSceneName")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let scene_items = request(
+        socket,
+        "GetSceneItemList",
+        json!({ "sceneName": current_scene }),
+    )
+    .await?;
     let stream = request(socket, "GetStreamStatus", json!({})).await?;
     let record = request(socket, "GetRecordStatus", json!({})).await?;
     let scenes = scene_list
@@ -150,13 +160,24 @@ async fn status_with(socket: &mut Socket, url: &str) -> Result<Value, String> {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    let sources = scene_items
+        .get("sceneItems")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get("sourceName").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
 
     Ok(json!({
         "connected": true,
         "url": url,
         "scenes": scenes,
-        "currentScene": scene_list.get("currentProgramSceneName").and_then(Value::as_str).unwrap_or(""),
+        "currentScene": current_scene,
         "inputs": inputs,
+        "sources": sources,
         "streaming": stream.get("outputActive").and_then(Value::as_bool).unwrap_or(false),
         "recording": record.get("outputActive").and_then(Value::as_bool).unwrap_or(false),
     }))

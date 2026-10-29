@@ -1,0 +1,1 @@
+import{g as C,w as Ee}from"./chunk-DnUhDadi.js";import{t as ke}from"./chunk-BUk_zh72.js";var a=class t{http=C(ke);getSnapshot(){return this.http.get(`rgg-sync/donations`)}getDonationAlertsAuthUrl(){return this.http.get(`rgg-sync/donations/donationalerts/auth`)}static ɵfac=function(e){return new(e||t)};static ɵprov=Ee({token:t,factory:t.ɵfac,providedIn:`root`})};export{a as t};
