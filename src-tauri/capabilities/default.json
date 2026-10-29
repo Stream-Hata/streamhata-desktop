@@ -22,6 +22,8 @@
     "allow-resume-session",
     "allow-save-text-file",
     "allow-obs-output",
+    "allow-obs-reorder-scene",
+    "allow-obs-create-scene",
     "allow-obs-mute",
     "allow-obs-scene",
     "allow-obs-disconnect",

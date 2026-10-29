@@ -1059,6 +1059,16 @@ async fn obs_disconnect() {
 }
 
 #[tauri::command]
+async fn obs_create_scene(scene: String) -> Result<serde_json::Value, String> {
+    obs::create_scene(scene).await
+}
+
+#[tauri::command]
+async fn obs_reorder_scene(scene: String, index: i64) -> Result<serde_json::Value, String> {
+    obs::reorder_scene(scene, index).await
+}
+
+#[tauri::command]
 async fn obs_scene(scene: String) -> Result<serde_json::Value, String> {
     obs::scene(scene).await
 }
@@ -1951,6 +1961,8 @@ pub fn run() {
             install_update,
             obs_connect,
             obs_status,
+            obs_create_scene,
+            obs_reorder_scene,
             obs_disconnect,
             obs_scene,
             obs_mute,

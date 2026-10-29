@@ -243,6 +243,12 @@
           "markdownDescription": "Enables the obs_connect command without any pre-configured scope."
         },
         {
+          "description": "Enables the obs_create_scene command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-create-scene",
+          "markdownDescription": "Enables the obs_create_scene command without any pre-configured scope."
+        },
+        {
           "description": "Enables the obs_disconnect command without any pre-configured scope.",
           "type": "string",
           "const": "allow-obs-disconnect",
@@ -259,6 +265,12 @@
           "type": "string",
           "const": "allow-obs-output",
           "markdownDescription": "Enables the obs_output command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_reorder_scene command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-reorder-scene",
+          "markdownDescription": "Enables the obs_reorder_scene command without any pre-configured scope."
         },
         {
           "description": "Enables the obs_scene command without any pre-configured scope.",
@@ -429,6 +441,12 @@
           "markdownDescription": "Denies the obs_connect command without any pre-configured scope."
         },
         {
+          "description": "Denies the obs_create_scene command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-create-scene",
+          "markdownDescription": "Denies the obs_create_scene command without any pre-configured scope."
+        },
+        {
           "description": "Denies the obs_disconnect command without any pre-configured scope.",
           "type": "string",
           "const": "deny-obs-disconnect",
@@ -445,6 +463,12 @@
           "type": "string",
           "const": "deny-obs-output",
           "markdownDescription": "Denies the obs_output command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_reorder_scene command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-reorder-scene",
+          "markdownDescription": "Denies the obs_reorder_scene command without any pre-configured scope."
         },
         {
           "description": "Denies the obs_scene command without any pre-configured scope.",
