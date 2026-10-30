@@ -2064,6 +2064,72 @@ async fn obs_output(output: String, action: String) -> Result<serde_json::Value,
 }
 
 #[tauri::command]
+async fn obs_scene_items(scene: String) -> Result<serde_json::Value, String> {
+    obs::obs_scene_items(scene).await
+}
+
+#[tauri::command]
+async fn obs_scene_screenshot(scene: String) -> Result<String, String> {
+    obs::obs_scene_screenshot(scene).await
+}
+
+#[tauri::command]
+async fn obs_scene_item_transform(
+    scene: String,
+    id: i64,
+    transform: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    obs::obs_scene_item_transform(scene, id, transform).await
+}
+
+#[tauri::command]
+async fn obs_scene_item_enabled(
+    scene: String,
+    id: i64,
+    enabled: bool,
+) -> Result<serde_json::Value, String> {
+    obs::obs_scene_item_enabled(scene, id, enabled).await
+}
+
+#[tauri::command]
+async fn obs_scene_item_locked(
+    scene: String,
+    id: i64,
+    locked: bool,
+) -> Result<serde_json::Value, String> {
+    obs::obs_scene_item_locked(scene, id, locked).await
+}
+
+#[tauri::command]
+async fn obs_scene_item_index(
+    scene: String,
+    id: i64,
+    index: i64,
+) -> Result<serde_json::Value, String> {
+    obs::obs_scene_item_index(scene, id, index).await
+}
+
+#[tauri::command]
+async fn obs_scene_item_remove(scene: String, id: i64) -> Result<serde_json::Value, String> {
+    obs::obs_scene_item_remove(scene, id).await
+}
+
+#[tauri::command]
+async fn obs_scene_item_create(scene: String, source: String) -> Result<serde_json::Value, String> {
+    obs::obs_scene_item_create(scene, source).await
+}
+
+#[tauri::command]
+async fn obs_scene_delete(scene: String) -> Result<serde_json::Value, String> {
+    obs::obs_scene_delete(scene).await
+}
+
+#[tauri::command]
+async fn obs_scene_rename(scene: String, name: String) -> Result<serde_json::Value, String> {
+    obs::obs_scene_rename(scene, name).await
+}
+
+#[tauri::command]
 fn update_ui_state() -> UpdateUiState {
     UPDATE_UI_STATE
         .lock()
@@ -2947,7 +3013,17 @@ pub fn run() {
             obs_disconnect,
             obs_scene,
             obs_mute,
-            obs_output
+            obs_output,
+            obs_scene_items,
+            obs_scene_screenshot,
+            obs_scene_item_transform,
+            obs_scene_item_enabled,
+            obs_scene_item_locked,
+            obs_scene_item_index,
+            obs_scene_item_remove,
+            obs_scene_item_create,
+            obs_scene_delete,
+            obs_scene_rename
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

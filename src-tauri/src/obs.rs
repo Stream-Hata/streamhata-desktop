@@ -349,3 +349,208 @@ pub async fn output(output: String, action: String) -> Result<Value, String> {
 pub async fn disconnect() {
     *CLIENT.lock().await = None;
 }
+
+async fn scene_items_once(guard: &mut Option<Client>, scene: &str) -> Result<Value, String> {
+    let Some(client) = guard.as_mut() else {
+        return Err("OBS WebSocket не подключён".to_string());
+    };
+    let video = request(&mut client.socket, "GetVideoSettings", json!({})).await?;
+    let list = request(
+        &mut client.socket,
+        "GetSceneItemList",
+        json!({ "sceneName": scene }),
+    )
+    .await?;
+    let mut items = Vec::new();
+    for item in list
+        .get("sceneItems")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let id = item.get("sceneItemId").and_then(Value::as_i64).unwrap_or(0);
+        let transform = request(
+            &mut client.socket,
+            "GetSceneItemTransform",
+            json!({ "sceneName": scene, "sceneItemId": id }),
+        )
+        .await
+        .ok()
+        .and_then(|data| data.get("sceneItemTransform").cloned())
+        .unwrap_or_else(|| json!({}));
+        items.push(json!({
+            "id": id,
+            "sourceName": item.get("sourceName").cloned().unwrap_or(Value::Null),
+            "index": item.get("sceneItemIndex").cloned().unwrap_or(json!(0)),
+            "enabled": item.get("sceneItemEnabled").cloned().unwrap_or(json!(true)),
+            "locked": item.get("sceneItemLocked").cloned().unwrap_or(json!(false)),
+            "transform": transform,
+        }));
+    }
+
+    Ok(json!({
+        "scene": scene,
+        "video": {
+            "baseWidth": video.get("baseWidth").cloned().unwrap_or(json!(1920)),
+            "baseHeight": video.get("baseHeight").cloned().unwrap_or(json!(1080)),
+            "outputWidth": video.get("outputWidth").cloned().unwrap_or(json!(1920)),
+            "outputHeight": video.get("outputHeight").cloned().unwrap_or(json!(1080)),
+        },
+        "items": items,
+    }))
+}
+
+pub async fn obs_scene_items(scene: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let result = scene_items_once(&mut guard, &scene).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_items_once(&mut guard, &scene).await
+}
+
+async fn scene_screenshot_once(guard: &mut Option<Client>, scene: &str) -> Result<String, String> {
+    let Some(client) = guard.as_mut() else {
+        return Err("OBS WebSocket не подключён".to_string());
+    };
+    let response = request(
+        &mut client.socket,
+        "GetSourceScreenshot",
+        json!({
+            "sourceName": scene,
+            "imageFormat": "png",
+            "imageWidth": 1280,
+            "imageHeight": 720,
+            "imageCompressionQuality": 80,
+        }),
+    )
+    .await?;
+
+    response
+        .get("imageData")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "OBS не вернул скриншот сцены".to_string())
+}
+
+pub async fn obs_scene_screenshot(scene: String) -> Result<String, String> {
+    let mut guard = CLIENT.lock().await;
+    let result = scene_screenshot_once(&mut guard, &scene).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_screenshot_once(&mut guard, &scene).await
+}
+
+async fn scene_item_request(
+    guard: &mut Option<Client>,
+    request_type: &str,
+    data: Value,
+) -> Result<Value, String> {
+    let Some(client) = guard.as_mut() else {
+        return Err("OBS WebSocket не подключён".to_string());
+    };
+    request(&mut client.socket, request_type, data).await
+}
+
+pub async fn obs_scene_item_transform(
+    scene: String,
+    id: i64,
+    transform: Value,
+) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({
+        "sceneName": scene,
+        "sceneItemId": id,
+        "sceneItemTransform": transform,
+    });
+    let result = scene_item_request(&mut guard, "SetSceneItemTransform", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "SetSceneItemTransform", data).await
+}
+
+pub async fn obs_scene_item_enabled(
+    scene: String,
+    id: i64,
+    enabled: bool,
+) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene, "sceneItemId": id, "sceneItemEnabled": enabled });
+    let result = scene_item_request(&mut guard, "SetSceneItemEnabled", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "SetSceneItemEnabled", data).await
+}
+
+pub async fn obs_scene_item_locked(scene: String, id: i64, locked: bool) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene, "sceneItemId": id, "sceneItemLocked": locked });
+    let result = scene_item_request(&mut guard, "SetSceneItemLocked", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "SetSceneItemLocked", data).await
+}
+
+pub async fn obs_scene_item_index(scene: String, id: i64, index: i64) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene, "sceneItemId": id, "sceneItemIndex": index });
+    let result = scene_item_request(&mut guard, "SetSceneItemIndex", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "SetSceneItemIndex", data).await
+}
+
+pub async fn obs_scene_item_remove(scene: String, id: i64) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene, "sceneItemId": id });
+    let result = scene_item_request(&mut guard, "RemoveSceneItem", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "RemoveSceneItem", data).await
+}
+
+pub async fn obs_scene_item_create(scene: String, source: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene, "sourceName": source, "sceneItemEnabled": true });
+    let result = scene_item_request(&mut guard, "CreateSceneItem", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "CreateSceneItem", data).await
+}
+
+pub async fn obs_scene_delete(scene: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene });
+    let result = scene_item_request(&mut guard, "RemoveScene", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "RemoveScene", data).await
+}
+
+pub async fn obs_scene_rename(scene: String, name: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "sceneName": scene, "newSceneName": name });
+    let result = scene_item_request(&mut guard, "SetSceneName", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "SetSceneName", data).await
+}
