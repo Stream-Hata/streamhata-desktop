@@ -1,5 +1,169 @@
 [
   {
+    "version": "0.1.0-alpha",
+    "date": "2026-10-30",
+    "sections": [
+      {
+        "title": "Добавлено",
+        "items": [
+          {
+            "text": "Первый публичный alpha-релиз StreamHata."
+          },
+          {
+            "text": "Мониторинг, статус-страница, инциденты и диагностика фидбека."
+          },
+          {
+            "text": "Now Playing: MP3/аудио, TuiMedia и отображение прогресса."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.5-pre-alpha",
+    "date": "2026-10-30",
+    "sections": [
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Now Playing восстанавливает текущий трек с backend и не запускает очередь с начала."
+          },
+          {
+            "text": "Текущий трек сохраняется в app_setting и переживает рестарт backend."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.4-pre-alpha",
+    "date": "2026-10-30",
+    "sections": [
+      {
+        "title": "Изменено",
+        "items": [
+          {
+            "text": "Первые шаблонные пайпы: translate и fileName."
+          },
+          {
+            "text": "Свитчи Telegram-редактора на общем switch-hit."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.3-pre-alpha",
+    "date": "2026-10-30",
+    "sections": [
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Свитчи Telegram-редактора переведены на общий паттерн switch-hit."
+          },
+          {
+            "text": "Клик по форме больше не переключает чекбоксы."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.2-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Now Playing снова запускает существующую очередь при открытии."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.1-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Изменено",
+        "items": [
+          {
+            "text": "Платформа в feedback — Linux/Windows/macOS/Android/iOS."
+          },
+          {
+            "text": "Версия выбирается из Taiga-дропдауна со списком версий."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "1.0.0-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Добавлено",
+        "items": [
+          {
+            "text": "Feedback: платформа, ссылки-дополнения, severity-метки GitHub."
+          },
+          {
+            "text": "Feedback-бот: пагинация issue, детальная карточка, комментарии, редактирование заголовка/описания."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.9.9-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Шапка feedback центрирована."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.9.8-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Feedback-конфиг хранится только в OpenBao."
+          },
+          {
+            "text": "Шапка feedback больше не перекрывает форму."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.9.7-pre-alpha",
+    "date": "2026-10-29",
+    "sections": [
+      {
+        "title": "Исправлено",
+        "items": [
+          {
+            "text": "Feedback-форма ограничена шириной 960px и центрирована."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.9.6-pre-alpha",
     "date": "2026-10-29",
     "sections": [

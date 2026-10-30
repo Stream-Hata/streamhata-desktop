@@ -3,12 +3,13 @@ mod obs;
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::process::Command;
 use std::thread;
 
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
-use sysinfo::{Disks, Networks, System};
+use sysinfo::{DiskRefreshKind, Disks, Networks, System};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
@@ -41,6 +42,126 @@ struct DiskMetric {
     mount: String,
     total: u64,
     available: u64,
+    kind: String,
+    file_system: String,
+    removable: bool,
+    read_bytes: u64,
+    written_bytes: u64,
+}
+
+#[derive(Serialize)]
+struct CpuCoreMetric {
+    name: String,
+    usage: f32,
+    frequency: u64,
+}
+
+#[derive(Serialize)]
+struct ProcessMetric {
+    pid: u32,
+    name: String,
+    cpu: f32,
+    memory: u64,
+    status: String,
+}
+
+#[derive(Serialize)]
+struct NetworkMetric {
+    name: String,
+    received: u64,
+    transmitted: u64,
+    packets_received: u64,
+    packets_transmitted: u64,
+    errors_received: u64,
+    errors_transmitted: u64,
+}
+
+#[derive(Serialize)]
+struct BatteryMetric {
+    name: String,
+    status: String,
+    percent: Option<f32>,
+}
+
+#[derive(Serialize)]
+struct PeripheralMetric {
+    name: String,
+    kind: String,
+    detail: String,
+}
+
+#[derive(Serialize)]
+struct MemoryModule {
+    locator: String,
+    bank: String,
+    size: String,
+    kind: String,
+    speed: String,
+    manufacturer: String,
+    part_number: String,
+}
+
+#[derive(Serialize)]
+struct VolumeMetric {
+    name: String,
+    path: String,
+    kind: String,
+    size: u64,
+    file_system: String,
+    mount: String,
+    model: String,
+    serial: String,
+    parent: String,
+    transport: String,
+    rotational: bool,
+    revision: String,
+}
+
+#[derive(Serialize)]
+struct SmartAttribute {
+    id: u64,
+    name: String,
+    value: u64,
+    worst: u64,
+    threshold: u64,
+    raw: String,
+}
+
+#[derive(Serialize)]
+struct DiskHealth {
+    device: String,
+    model: String,
+    serial: String,
+    firmware: String,
+    health: String,
+    temperature_c: Option<i64>,
+    power_on_hours: Option<u64>,
+    reallocated_sectors: Option<u64>,
+    pending_sectors: Option<u64>,
+    uncorrectable_sectors: Option<u64>,
+    wear_percent: Option<u64>,
+    data_written_bytes: Option<u64>,
+    data_read_bytes: Option<u64>,
+    media_errors: Option<u64>,
+    note: String,
+    transport: String,
+    rotational: bool,
+    type_label: String,
+    attributes: Vec<SmartAttribute>,
+}
+
+#[derive(Serialize)]
+struct SystemDetails {
+    memory: Vec<MemoryModule>,
+    volumes: Vec<VolumeMetric>,
+    disks: Vec<DiskHealth>,
+    board_vendor: String,
+    board_name: String,
+    bios_vendor: String,
+    bios_version: String,
+    bios_date: String,
+    product_name: String,
+    serial: String,
 }
 
 #[derive(Serialize)]
@@ -56,6 +177,27 @@ struct SystemMetrics {
     network_received: u64,
     network_transmitted: u64,
     disks: Vec<DiskMetric>,
+    host: String,
+    os: String,
+    kernel: String,
+    physical_cores: usize,
+    logical_cores: usize,
+    load_one: f64,
+    load_five: f64,
+    load_fifteen: f64,
+    cpu_cores: Vec<CpuCoreMetric>,
+    process_list: Vec<ProcessMetric>,
+    networks: Vec<NetworkMetric>,
+    batteries: Vec<BatteryMetric>,
+    peripherals: Vec<PeripheralMetric>,
+    arch: String,
+    bitness: u32,
+    cpu_brand: String,
+    cpu_vendor: String,
+    cpu_frequency: u64,
+    gpu_name: String,
+    gpu_temperature: Option<i64>,
+    cpu_temperature: Option<f32>,
 }
 
 #[cfg(target_os = "linux")]
@@ -118,6 +260,342 @@ fn gpu_usage() -> Option<f32> {
 fn gpu_usage() -> Option<f32> {
     None
 }
+#[cfg(target_os = "linux")]
+fn gpu_details() -> (Option<String>, Option<i64>) {
+    let Ok(nvml) = nvml_wrapper::Nvml::init() else {
+        return (None, None);
+    };
+    let Ok(device) = nvml.device_by_index(0) else {
+        return (None, None);
+    };
+    let name = device.name().ok();
+    let temperature = device
+        .temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
+        .ok()
+        .map(|value| value as i64);
+    (name, temperature)
+}
+
+#[cfg(target_os = "windows")]
+fn powershell_json(script: &str) -> Option<serde_json::Value> {
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script,
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    serde_json::from_str(text.trim_start_matches('\u{feff}').trim()).ok()
+}
+
+#[cfg(target_os = "windows")]
+fn json_array(value: serde_json::Value) -> Vec<serde_json::Value> {
+    value.as_array().cloned().unwrap_or_else(|| vec![value])
+}
+
+#[cfg(target_os = "windows")]
+fn json_u64(value: &serde_json::Value) -> u64 {
+    value
+        .as_u64()
+        .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+        .unwrap_or(0)
+}
+
+#[cfg(target_os = "windows")]
+fn gpu_details() -> (Option<String>, Option<i64>) {
+    if let Ok(output) = Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=name,temperature.gpu",
+            "--format=csv,noheader,nounits",
+        ])
+        .output()
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            if let Some(line) = text.lines().next() {
+                let mut parts = line.split(',').map(str::trim);
+                let name = parts.next().unwrap_or_default().to_string();
+                let temperature = parts.next().and_then(|value| value.parse::<i64>().ok());
+                if !name.is_empty() {
+                    return (Some(name), temperature);
+                }
+            }
+        }
+    }
+    let name = powershell_json("@(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) | ConvertTo-Json -Compress")
+        .and_then(|value| json_array(value).first().and_then(|value| value.as_str()).map(str::to_string));
+
+    (name, None)
+}
+
+#[cfg(target_os = "windows")]
+fn cpu_temperature() -> Option<f32> {
+    let value = powershell_json("@(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue | Select-Object -ExpandProperty CurrentTemperature) | ConvertTo-Json -Compress")?;
+    json_array(value)
+        .into_iter()
+        .filter_map(|value| value.as_f64())
+        .map(|value| (value / 10.0 - 273.15) as f32)
+        .reduce(f32::max)
+}
+
+#[cfg(target_os = "windows")]
+fn battery_metrics() -> Vec<BatteryMetric> {
+    let Some(value) = powershell_json("@(Get-CimInstance Win32_Battery | Select-Object Name,EstimatedChargeRemaining,BatteryStatus) | ConvertTo-Json -Compress -Depth 3") else {
+        return Vec::new();
+    };
+    json_array(value)
+        .into_iter()
+        .map(|item| {
+            let status = match item["BatteryStatus"].as_u64().unwrap_or(0) {
+                1 => "Discharging",
+                2 => "AC",
+                3 => "Fully charged",
+                4 => "Low",
+                5 => "Critical",
+                6 => "Charging",
+                7 => "Charging + high",
+                8 => "Charging + low",
+                9 => "Charging + critical",
+                _ => "Unknown",
+            };
+            BatteryMetric {
+                name: item["Name"].as_str().unwrap_or("Battery").to_string(),
+                status: status.to_string(),
+                percent: item["EstimatedChargeRemaining"]
+                    .as_f64()
+                    .map(|value| value as f32),
+            }
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn peripheral_metrics() -> Vec<PeripheralMetric> {
+    let Some(value) = powershell_json("@(Get-PnpDevice -PresentOnly | Where-Object { $_.Class -in @('USB','Bluetooth','HIDClass','Keyboard','Mouse','AudioEndpoint') } | Select-Object FriendlyName,Class,InstanceId) | ConvertTo-Json -Compress -Depth 3") else {
+        return Vec::new();
+    };
+    json_array(value)
+        .into_iter()
+        .filter_map(|item| {
+            let name = item["FriendlyName"].as_str().unwrap_or_default().trim();
+            if name.is_empty() {
+                return None;
+            }
+            Some(PeripheralMetric {
+                name: name.to_string(),
+                kind: item["Class"].as_str().unwrap_or("Device").to_string(),
+                detail: item["InstanceId"].as_str().unwrap_or_default().to_string(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn dmi_info() -> (String, String, String, String, String, String, String) {
+    let Some(value) = powershell_json("$board=Get-CimInstance Win32_BaseBoard; $bios=Get-CimInstance Win32_BIOS; $cs=Get-CimInstance Win32_ComputerSystemProduct; [pscustomobject]@{boardVendor=$board.Manufacturer;boardName=$board.Product;biosVendor=$bios.Manufacturer;biosVersion=$bios.SMBIOSBIOSVersion;biosDate=$bios.ReleaseDate;productName=$cs.Name;serial=$cs.IdentifyingNumber} | ConvertTo-Json -Compress") else {
+        return (String::new(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new());
+    };
+    let text = |key: &str| value[key].as_str().unwrap_or_default().to_string();
+    (
+        text("boardVendor"),
+        text("boardName"),
+        text("biosVendor"),
+        text("biosVersion"),
+        text("biosDate"),
+        text("productName"),
+        text("serial"),
+    )
+}
+
+#[cfg(target_os = "windows")]
+fn memory_modules() -> Vec<MemoryModule> {
+    let Some(value) = powershell_json("@(Get-CimInstance Win32_PhysicalMemory | Select-Object DeviceLocator,BankLabel,Capacity,Speed,SMBIOSMemoryType,Manufacturer,PartNumber) | ConvertTo-Json -Compress -Depth 3") else {
+        return Vec::new();
+    };
+    json_array(value)
+        .into_iter()
+        .filter_map(|item| {
+            let capacity = json_u64(&item["Capacity"]);
+            if capacity == 0 {
+                return None;
+            }
+            let kind = match item["SMBIOSMemoryType"].as_u64().unwrap_or(0) {
+                20 => "DDR",
+                21 => "DDR2",
+                24 => "DDR3",
+                26 => "DDR4",
+                34 => "DDR5",
+                _ => "RAM",
+            };
+            Some(MemoryModule {
+                locator: item["DeviceLocator"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                bank: item["BankLabel"].as_str().unwrap_or_default().to_string(),
+                size: format!("{} GB", capacity / 1024 / 1024 / 1024),
+                kind: kind.to_string(),
+                speed: item["Speed"]
+                    .as_u64()
+                    .map(|value| format!("{} MHz", value))
+                    .unwrap_or_default(),
+                manufacturer: item["Manufacturer"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                part_number: item["PartNumber"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn volume_layout() -> Vec<VolumeMetric> {
+    let Some(value) = powershell_json("@(Get-Volume | Select-Object DriveLetter,FileSystemLabel,FileSystem,Size,SizeRemaining,Path,DriveType) | ConvertTo-Json -Compress -Depth 3") else {
+        return Vec::new();
+    };
+    json_array(value)
+        .into_iter()
+        .map(|item| {
+            let letter = item["DriveLetter"].as_str().unwrap_or_default();
+            let label = item["FileSystemLabel"].as_str().unwrap_or_default();
+            let path = item["Path"].as_str().unwrap_or_default();
+            VolumeMetric {
+                name: if letter.is_empty() {
+                    label.to_string()
+                } else {
+                    letter.to_string()
+                },
+                path: if path.is_empty() && !letter.is_empty() {
+                    format!("{}:", letter)
+                } else {
+                    path.to_string()
+                },
+                kind: item["DriveType"].as_str().unwrap_or_default().to_string(),
+                size: json_u64(&item["Size"]),
+                file_system: item["FileSystem"].as_str().unwrap_or_default().to_string(),
+                mount: if letter.is_empty() {
+                    path.to_string()
+                } else {
+                    format!("{}:\\", letter)
+                },
+                model: String::new(),
+                serial: String::new(),
+                parent: String::new(),
+                transport: item["DriveType"].as_str().unwrap_or_default().to_string(),
+                rotational: false,
+                revision: String::new(),
+            }
+        })
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn disk_health() -> Vec<DiskHealth> {
+    let Some(disks) = powershell_json("@(Get-PhysicalDisk | Select-Object DeviceId,FriendlyName,SerialNumber,MediaType,BusType,HealthStatus,OperationalStatus,Size) | ConvertTo-Json -Compress -Depth 3") else {
+        return Vec::new();
+    };
+    let counters = powershell_json("@(Get-PhysicalDisk | Get-StorageReliabilityCounter | Select-Object DeviceId,Temperature,PowerOnHours,Wear,ReadErrorsTotal,WriteErrorsTotal) | ConvertTo-Json -Compress -Depth 3");
+    let mut counter_map = std::collections::HashMap::new();
+    if let Some(counters) = counters {
+        for counter in json_array(counters) {
+            if let Some(id) = counter["DeviceId"].as_str() {
+                counter_map.insert(id.to_string(), counter);
+            }
+        }
+    }
+    json_array(disks)
+        .into_iter()
+        .map(|disk| {
+            let device = disk["DeviceId"].as_str().unwrap_or_default().to_string();
+            let counter = counter_map.get(&device);
+            let media = disk["MediaType"].as_str().unwrap_or_default();
+            let bus = disk["BusType"].as_str().unwrap_or_default();
+            let health = disk["HealthStatus"]
+                .as_str()
+                .unwrap_or("Unknown")
+                .to_string();
+            let read_errors = counter
+                .and_then(|value| value["ReadErrorsTotal"].as_u64())
+                .unwrap_or(0);
+            let write_errors = counter
+                .and_then(|value| value["WriteErrorsTotal"].as_u64())
+                .unwrap_or(0);
+            DiskHealth {
+                device: device.clone(),
+                model: disk["FriendlyName"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                serial: disk["SerialNumber"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                firmware: String::new(),
+                health,
+                temperature_c: counter.and_then(|value| value["Temperature"].as_i64()),
+                power_on_hours: counter.and_then(|value| value["PowerOnHours"].as_u64()),
+                reallocated_sectors: None,
+                pending_sectors: None,
+                uncorrectable_sectors: None,
+                wear_percent: counter.and_then(|value| value["Wear"].as_u64()),
+                data_written_bytes: None,
+                data_read_bytes: None,
+                media_errors: if read_errors + write_errors > 0 {
+                    Some(read_errors + write_errors)
+                } else {
+                    None
+                },
+                note: if counter.is_some() {
+                    "Windows storage reliability counters".to_string()
+                } else {
+                    "SMART counters unavailable".to_string()
+                },
+                transport: bus.to_string(),
+                rotational: media.eq_ignore_ascii_case("HDD"),
+                type_label: format!("{} {}", bus, media).trim().to_string(),
+                attributes: Vec::new(),
+            }
+        })
+        .collect()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn gpu_details() -> (Option<String>, Option<i64>) {
+    (None, None)
+}
+
+#[cfg(target_os = "linux")]
+fn cpu_temperature() -> Option<f32> {
+    let entries = std::fs::read_dir("/sys/class/thermal").ok()?;
+    let mut temperatures = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path().join("temp");
+        if let Ok(value) = std::fs::read_to_string(path) {
+            if let Ok(value) = value.trim().parse::<f32>() {
+                temperatures.push(value / 1000.0);
+            }
+        }
+    }
+    temperatures.into_iter().reduce(f32::max)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn cpu_temperature() -> Option<f32> {
+    None
+}
 
 #[tauri::command]
 fn system_metrics() -> SystemMetrics {
@@ -126,18 +604,25 @@ fn system_metrics() -> SystemMetrics {
     system.refresh_cpu_usage();
     system.refresh_memory();
 
-    let networks = Networks::new_with_refreshed_list();
-    let (network_received, network_transmitted) =
-        networks
-            .list()
-            .values()
-            .fold((0_u64, 0_u64), |(received, transmitted), network| {
-                (
-                    received + network.total_received(),
-                    transmitted + network.total_transmitted(),
-                )
-            });
-    let disks = Disks::new_with_refreshed_list();
+    let mut networks = Networks::new_with_refreshed_list();
+    networks.refresh(true);
+    let network_list: Vec<NetworkMetric> = networks
+        .list()
+        .iter()
+        .map(|(name, network)| NetworkMetric {
+            name: name.clone(),
+            received: network.total_received(),
+            transmitted: network.total_transmitted(),
+            packets_received: network.total_packets_received(),
+            packets_transmitted: network.total_packets_transmitted(),
+            errors_received: network.total_errors_on_received(),
+            errors_transmitted: network.total_errors_on_transmitted(),
+        })
+        .collect();
+    let network_received = network_list.iter().map(|item| item.received).sum();
+    let network_transmitted = network_list.iter().map(|item| item.transmitted).sum();
+
+    let disks = Disks::new_with_refreshed_list_specifics(DiskRefreshKind::everything());
     let disk_metrics = disks
         .list()
         .iter()
@@ -146,9 +631,44 @@ fn system_metrics() -> SystemMetrics {
             mount: disk.mount_point().to_string_lossy().to_string(),
             total: disk.total_space(),
             available: disk.available_space(),
+            kind: disk.kind().to_string(),
+            file_system: disk.file_system().to_string_lossy().to_string(),
+            removable: disk.is_removable(),
+            read_bytes: disk.usage().total_read_bytes,
+            written_bytes: disk.usage().total_written_bytes,
         })
         .collect();
 
+    let cpu_cores: Vec<CpuCoreMetric> = system
+        .cpus()
+        .iter()
+        .map(|cpu| CpuCoreMetric {
+            name: cpu.name().to_string(),
+            usage: cpu.cpu_usage(),
+            frequency: cpu.frequency(),
+        })
+        .collect();
+
+    let mut process_list: Vec<ProcessMetric> = system
+        .processes()
+        .values()
+        .map(|process| ProcessMetric {
+            pid: process.pid().as_u32(),
+            name: process.name().to_string_lossy().to_string(),
+            cpu: process.cpu_usage(),
+            memory: process.memory(),
+            status: format!("{:?}", process.status()),
+        })
+        .collect();
+    process_list.sort_by(|left, right| {
+        right
+            .cpu
+            .partial_cmp(&left.cpu)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    process_list.truncate(20);
+
+    let load = System::load_average();
     SystemMetrics {
         cpu: system.global_cpu_usage(),
         gpu: gpu_usage(),
@@ -161,7 +681,467 @@ fn system_metrics() -> SystemMetrics {
         network_received,
         network_transmitted,
         disks: disk_metrics,
+        host: System::host_name().unwrap_or_else(|| "—".to_string()),
+        os: System::long_os_version()
+            .or_else(System::os_version)
+            .unwrap_or_else(|| "—".to_string()),
+        kernel: System::kernel_version().unwrap_or_else(|| "—".to_string()),
+        physical_cores: System::physical_core_count().unwrap_or(0),
+        logical_cores: system.cpus().len(),
+        load_one: load.one,
+        load_five: load.five,
+        load_fifteen: load.fifteen,
+        cpu_cores,
+        process_list,
+        networks: network_list,
+        batteries: battery_metrics(),
+        peripherals: peripheral_metrics(),
+        arch: std::env::consts::ARCH.to_string(),
+        bitness: (std::mem::size_of::<usize>() * 8) as u32,
+        cpu_brand: system
+            .cpus()
+            .first()
+            .map(|cpu| cpu.brand().to_string())
+            .unwrap_or_default(),
+        cpu_vendor: system
+            .cpus()
+            .first()
+            .map(|cpu| cpu.vendor_id().to_string())
+            .unwrap_or_default(),
+        cpu_frequency: system
+            .cpus()
+            .iter()
+            .map(|cpu| cpu.frequency())
+            .max()
+            .unwrap_or(0),
+        gpu_name: gpu_details().0.unwrap_or_default(),
+        gpu_temperature: gpu_details().1,
+        cpu_temperature: cpu_temperature(),
     }
+}
+
+#[cfg(target_os = "linux")]
+fn battery_metrics() -> Vec<BatteryMetric> {
+    let Ok(entries) = std::fs::read_dir("/sys/class/power_supply") else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let kind = std::fs::read_to_string(path.join("type")).ok()?;
+            if !kind.trim().eq_ignore_ascii_case("battery") {
+                return None;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let status = std::fs::read_to_string(path.join("status"))
+                .unwrap_or_else(|_| "Unknown".to_string())
+                .trim()
+                .to_string();
+            let percent = std::fs::read_to_string(path.join("capacity"))
+                .ok()
+                .and_then(|value| value.trim().parse::<f32>().ok());
+            Some(BatteryMetric {
+                name,
+                status,
+                percent,
+            })
+        })
+        .collect()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn battery_metrics() -> Vec<BatteryMetric> {
+    Vec::new()
+}
+
+#[cfg(target_os = "linux")]
+fn peripheral_metrics() -> Vec<PeripheralMetric> {
+    let Ok(entries) = std::fs::read_dir("/sys/bus/usb/devices") else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let product = std::fs::read_to_string(path.join("product")).ok()?;
+            let manufacturer =
+                std::fs::read_to_string(path.join("manufacturer")).unwrap_or_default();
+            let vendor = std::fs::read_to_string(path.join("idVendor")).unwrap_or_default();
+            let device = std::fs::read_to_string(path.join("idProduct")).unwrap_or_default();
+            Some(PeripheralMetric {
+                name: product.trim().to_string(),
+                kind: "USB".to_string(),
+                detail: format!("{} {}{}", manufacturer.trim(), vendor.trim(), device.trim())
+                    .trim()
+                    .to_string(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn peripheral_metrics() -> Vec<PeripheralMetric> {
+    Vec::new()
+}
+
+fn dmi_value(name: &str) -> String {
+    std::fs::read_to_string(format!("/sys/class/dmi/id/{name}"))
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+#[cfg(target_os = "linux")]
+fn dmi_info() -> (String, String, String, String, String, String, String) {
+    (
+        dmi_value("board_vendor"),
+        dmi_value("board_name"),
+        dmi_value("bios_vendor"),
+        dmi_value("bios_version"),
+        dmi_value("bios_date"),
+        dmi_value("product_name"),
+        dmi_value("product_serial"),
+    )
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn dmi_info() -> (String, String, String, String, String, String, String) {
+    (
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+    )
+}
+
+#[tauri::command]
+fn system_details() -> SystemDetails {
+    let dmi = dmi_info();
+    SystemDetails {
+        memory: memory_modules(),
+        volumes: volume_layout(),
+        disks: disk_health(),
+        board_vendor: dmi.0,
+        board_name: dmi.1,
+        bios_vendor: dmi.2,
+        bios_version: dmi.3,
+        bios_date: dmi.4,
+        product_name: dmi.5,
+        serial: dmi.6,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn memory_modules() -> Vec<MemoryModule> {
+    let output = Command::new("dmidecode")
+        .args(["-t", "17"])
+        .output()
+        .ok()
+        .or_else(|| {
+            Command::new("sudo")
+                .args(["-n", "dmidecode", "-t", "17"])
+                .output()
+                .ok()
+        });
+    let Some(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut result = Vec::new();
+    let mut module: Option<MemoryModule> = None;
+    let mut fields: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let flush = |fields: &mut std::collections::HashMap<String, String>,
+                 result: &mut Vec<MemoryModule>| {
+        let size = fields.get("Size").cloned().unwrap_or_default();
+        if !size.is_empty() && !size.contains("No Module") {
+            result.push(MemoryModule {
+                locator: fields.get("Locator").cloned().unwrap_or_default(),
+                bank: fields.get("Bank Locator").cloned().unwrap_or_default(),
+                size,
+                kind: fields.get("Type").cloned().unwrap_or_default(),
+                speed: fields.get("Speed").cloned().unwrap_or_default(),
+                manufacturer: fields.get("Manufacturer").cloned().unwrap_or_default(),
+                part_number: fields.get("Part Number").cloned().unwrap_or_default(),
+            });
+        }
+        fields.clear();
+    };
+    for line in text.lines() {
+        let line = line.trim();
+        if line == "Memory Device" {
+            if module.is_some() {
+                flush(&mut fields, &mut result);
+            }
+            module = Some(MemoryModule {
+                locator: String::new(),
+                bank: String::new(),
+                size: String::new(),
+                kind: String::new(),
+                speed: String::new(),
+                manufacturer: String::new(),
+                part_number: String::new(),
+            });
+            continue;
+        }
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            if matches!(
+                key,
+                "Size"
+                    | "Type"
+                    | "Speed"
+                    | "Manufacturer"
+                    | "Part Number"
+                    | "Locator"
+                    | "Bank Locator"
+            ) {
+                fields.insert(key.to_string(), value.trim().to_string());
+            }
+        }
+    }
+    if module.is_some() {
+        flush(&mut fields, &mut result);
+    }
+    result
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn memory_modules() -> Vec<MemoryModule> {
+    Vec::new()
+}
+
+#[cfg(target_os = "linux")]
+fn volume_layout() -> Vec<VolumeMetric> {
+    let output = Command::new("lsblk")
+        .args([
+            "-J",
+            "-b",
+            "-o",
+            "NAME,PATH,TYPE,SIZE,FSTYPE,MOUNTPOINT,MODEL,SERIAL,PKNAME,TRAN,ROTA,REV",
+        ])
+        .output();
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    let Ok(json) = serde_json::from_slice::<serde_json::Value>(&output.stdout) else {
+        return Vec::new();
+    };
+    let mut result = Vec::new();
+    fn walk(items: &[serde_json::Value], parent: &str, result: &mut Vec<VolumeMetric>) {
+        for item in items {
+            let name = item["name"].as_str().unwrap_or_default().to_string();
+            let kind = item["type"].as_str().unwrap_or_default().to_string();
+            let path = item["path"].as_str().unwrap_or_default().to_string();
+            let size = item["size"].as_u64().unwrap_or_else(|| {
+                item["size"]
+                    .as_str()
+                    .and_then(|value| value.parse().ok())
+                    .unwrap_or(0)
+            });
+            if !name.is_empty() {
+                result.push(VolumeMetric {
+                    name,
+                    path,
+                    kind,
+                    size,
+                    file_system: item["fstype"].as_str().unwrap_or_default().to_string(),
+                    mount: item["mountpoint"].as_str().unwrap_or_default().to_string(),
+                    model: item["model"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .trim()
+                        .to_string(),
+                    serial: item["serial"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .trim()
+                        .to_string(),
+                    parent: parent.to_string(),
+                    transport: item["tran"].as_str().unwrap_or_default().to_string(),
+                    rotational: item["rota"]
+                        .as_bool()
+                        .or_else(|| {
+                            item["rota"]
+                                .as_str()
+                                .map(|value| value == "1" || value == "true")
+                        })
+                        .unwrap_or(false),
+                    revision: item["rev"].as_str().unwrap_or_default().to_string(),
+                });
+            }
+            if let Some(children) = item["children"].as_array() {
+                walk(children, item["path"].as_str().unwrap_or_default(), result);
+            }
+        }
+    }
+    if let Some(items) = json["blockdevices"].as_array() {
+        walk(items, "", &mut result);
+    }
+    result
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn volume_layout() -> Vec<VolumeMetric> {
+    Vec::new()
+}
+
+fn disk_type_label(transport: &str, rotational: bool, model: &str) -> String {
+    let lower = model.to_lowercase();
+    if transport.eq_ignore_ascii_case("nvme") || lower.contains("nvme") {
+        return "M.2 NVMe".to_string();
+    }
+    if lower.contains("msata") {
+        return "mSATA".to_string();
+    }
+    if transport.eq_ignore_ascii_case("usb") {
+        return "USB".to_string();
+    }
+    if transport.eq_ignore_ascii_case("sata") {
+        return if rotational {
+            "SATA HDD".to_string()
+        } else {
+            "SATA SSD".to_string()
+        };
+    }
+    if rotational {
+        "HDD".to_string()
+    } else {
+        "SSD".to_string()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn disk_health() -> Vec<DiskHealth> {
+    let disks = volume_layout();
+    let mut result = Vec::new();
+    for disk in disks.iter().filter(|item| item.kind == "disk") {
+        let output = Command::new("smartctl")
+            .args(["-j", "-a", &disk.path])
+            .output();
+        let Ok(output) = output else {
+            result.push(DiskHealth {
+                device: disk.path.clone(),
+                model: disk.model.clone(),
+                serial: disk.serial.clone(),
+                firmware: String::new(),
+                health: "smartctl не установлен".to_string(),
+                temperature_c: None,
+                power_on_hours: None,
+                reallocated_sectors: None,
+                pending_sectors: None,
+                uncorrectable_sectors: None,
+                wear_percent: None,
+                data_written_bytes: None,
+                data_read_bytes: None,
+                media_errors: None,
+                note: "Установите smartmontools".to_string(),
+                transport: disk.transport.clone(),
+                rotational: disk.rotational,
+                type_label: disk_type_label(&disk.transport, disk.rotational, &disk.model),
+                attributes: Vec::new(),
+            });
+            continue;
+        };
+        let Ok(json) = serde_json::from_slice::<serde_json::Value>(&output.stdout) else {
+            continue;
+        };
+        let passed = json["smart_status"]["passed"].as_bool();
+        let health = match passed {
+            Some(true) => "OK".to_string(),
+            Some(false) => "FAILED".to_string(),
+            None => "UNKNOWN".to_string(),
+        };
+        let mut reallocated = None;
+        let mut pending = None;
+        let mut uncorrectable = None;
+        if let Some(table) = json["ata_smart_attributes"]["table"].as_array() {
+            for attr in table {
+                let id = attr["id"].as_u64().unwrap_or(0);
+                let raw = attr["raw"]["value"].as_u64();
+                match id {
+                    5 => reallocated = raw,
+                    197 => pending = raw,
+                    198 => uncorrectable = raw,
+                    _ => {}
+                }
+            }
+        }
+        let nvme = &json["nvme_smart_health_information_log"];
+        let data_written = nvme["data_units_written"]
+            .as_u64()
+            .map(|value| value * 512_000);
+        let data_read = nvme["data_units_read"]
+            .as_u64()
+            .map(|value| value * 512_000);
+        let mut attributes = Vec::new();
+        if let Some(table) = json["ata_smart_attributes"]["table"].as_array() {
+            for attr in table {
+                let id = attr["id"].as_u64().unwrap_or(0);
+                let raw = attr["raw"]["string"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string();
+                attributes.push(SmartAttribute {
+                    id,
+                    name: attr["name"].as_str().unwrap_or_default().to_string(),
+                    value: attr["value"].as_u64().unwrap_or(0),
+                    worst: attr["worst"].as_u64().unwrap_or(0),
+                    threshold: attr["thresh"].as_u64().unwrap_or(0),
+                    raw,
+                });
+            }
+        }
+        result.push(DiskHealth {
+            device: disk.path.clone(),
+            model: json["model_name"]
+                .as_str()
+                .unwrap_or(&disk.model)
+                .to_string(),
+            serial: json["serial_number"]
+                .as_str()
+                .unwrap_or(&disk.serial)
+                .to_string(),
+            firmware: json["firmware_version"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            health,
+            temperature_c: json["temperature"]["current"]
+                .as_i64()
+                .or_else(|| nvme["temperature"].as_i64()),
+            power_on_hours: json["power_on_time"]["hours"]
+                .as_u64()
+                .or_else(|| nvme["power_on_hours"].as_u64()),
+            reallocated_sectors: reallocated,
+            pending_sectors: pending,
+            uncorrectable_sectors: uncorrectable,
+            wear_percent: nvme["percentage_used"].as_u64(),
+            data_written_bytes: data_written,
+            data_read_bytes: data_read,
+            media_errors: nvme["media_errors"].as_u64(),
+            note: String::new(),
+            transport: disk.transport.clone(),
+            rotational: disk.rotational,
+            type_label: disk_type_label(&disk.transport, disk.rotational, &disk.model),
+            attributes,
+        });
+    }
+    result
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn disk_health() -> Vec<DiskHealth> {
+    Vec::new()
 }
 
 #[tauri::command]
@@ -1120,7 +2100,7 @@ async fn download_update_bytes(app: &AppHandle, update: &Update) -> Result<Vec<u
     let fallback = update
         .download_url
         .path_segments()
-        .and_then(|segments| segments.last())
+        .and_then(|mut segments| segments.next_back())
         .map(|name| format!("https://streamhata.rdpctd.dev/desktop/{name}"));
 
     let mut urls = vec![primary];
@@ -1938,6 +2918,7 @@ pub fn run() {
             save_session,
             clear_session,
             system_metrics,
+            system_details,
             system_widget_enabled,
             set_system_widget_enabled,
             system_overlay_url,

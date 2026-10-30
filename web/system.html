@@ -1,79 +1,209 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8" />
-    <title>Система · Nameless StreamHata</title>
-    <style>
-      :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
-      body { margin: 0; min-height: 100vh; padding: 24px; box-sizing: border-box; background: radial-gradient(700px 420px at 20% 0%, #2b1128, #0f0817 70%); color: #f5eaff; }
-      h1 { margin: 0 0 4px; font-size: 24px; }
-      .sub { color: #b9a8cf; font-size: 12px; margin-bottom: 18px; }
-      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-      .card { padding: 16px; border: 1px solid #3b214d; border-radius: 14px; background: #180e26cc; }
-      .label { color: #b9a8cf; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
-      .value { margin-top: 6px; font-size: 26px; font-weight: 800; }
-      .bar { height: 8px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #2a173d; }
-      .bar > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2ea6, #22e0ff); transition: width .25s ease; }
-      .wide { grid-column: 1 / -1; }
-      .disks { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-      .disk { display: flex; justify-content: space-between; gap: 12px; color: #b9a8cf; font-size: 12px; }
-      @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
-    </style>
-  </head>
-  <body>
-    <h1>Система</h1>
-    <div class="sub">Локальные метрики этого компьютера. Данные не уходят на сервер.</div>
-    <div class="grid">
-      <div class="card"><div class="label">CPU</div><div class="value" id="cpu">—</div><div class="bar"><span id="cpu-bar"></span></div></div>
-      <div class="card"><div class="label">Память</div><div class="value" id="memory">—</div><div class="bar"><span id="memory-bar"></span></div></div>
-      <div class="card"><div class="label">Сеть ↓ / ↑</div><div class="value" id="network">—</div><div class="bar"><span id="network-bar"></span></div></div>
-      <div class="card"><div class="label">Процессы</div><div class="value" id="processes">—</div><div class="sub" id="uptime"></div></div>
-      <div class="card wide"><div class="label">Диски</div><div class="disks" id="disks"></div></div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мониторинг системы · Nameless StreamHata</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; --bg:#0f0817; --panel:#180e26cc; --border:#3b214d; --muted:#b9a8cf; --pink:#ff2ea6; --cyan:#22e0ff; --green:#39ff88; --yellow:#ffe14d; --red:#ff3b3b; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; padding:24px; background: radial-gradient(900px 500px at 20% 0%, #2b1128, var(--bg) 70%); color:#f5eaff; }
+    h1 { margin:0 0 4px; font-size:26px; } h2 { margin:0 0 12px; font-size:17px; } h3 { margin:0 0 8px; font-size:14px; }
+    .sub, .muted { color:var(--muted); font-size:12px; }
+    .page { max-width:1500px; margin:0 auto; }
+    .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:18px; }
+    .host { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .chip { padding:5px 9px; border:1px solid var(--border); border-radius:999px; color:var(--muted); font-size:11px; }
+    .grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; }
+    .card { padding:15px; border:1px solid var(--border); border-radius:14px; background:var(--panel); min-width:0; }
+    .span2 { grid-column:span 2; } .span3 { grid-column:span 3; } .span4 { grid-column:span 4; } .span6 { grid-column:1 / -1; }
+    .label { color:var(--muted); font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+    .value { margin-top:6px; font-size:24px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .value.small { font-size:16px; } .value.mono { font-family:ui-monospace, monospace; font-size:14px; }
+    .bar { height:7px; margin-top:10px; overflow:hidden; border-radius:99px; background:#2a173d; }
+    .bar > span { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--pink),var(--cyan)); transition:width .25s ease; }
+    .section { margin-top:14px; }
+    .section-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
+    canvas { width:100%; height:110px; display:block; border-radius:8px; background:#10081a; }
+    .cores { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:7px; margin-top:12px; }
+    .core { padding:7px 8px; border-radius:8px; background:#21112f; font-size:10px; color:var(--muted); }
+    .core strong { color:#f5eaff; float:right; }
+    .core .bar { margin-top:6px; height:5px; }
+    table { width:100%; border-collapse:collapse; font-size:11px; }
+    th { color:var(--muted); text-align:left; font-weight:600; padding:6px 5px; border-bottom:1px solid var(--border); white-space:nowrap; }
+    td { padding:6px 5px; border-bottom:1px solid #2b183b; vertical-align:top; }
+    tr:last-child td { border-bottom:0; }
+    .table-wrap { overflow:auto; max-height:360px; }
+    .ok { color:var(--green); } .warn { color:var(--yellow); } .bad { color:var(--red); }
+    .empty { color:var(--muted); font-size:12px; padding:10px 0; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .disk { padding:10px; border:1px solid var(--border); border-radius:10px; background:#21112f; margin-bottom:7px; }
+    .disk-head { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .disk-meta { display:flex; flex-wrap:wrap; gap:10px; color:var(--muted); font-size:10px; margin-top:6px; }
+    .health { font-weight:700; }
+    @media(max-width:1100px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr));} .span4,.span3{grid-column:span 3;} }
+    @media(max-width:700px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} .span2,.span3,.span4{grid-column:span 2;} body{padding:14px;} }
+  </style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <div>
+      <h1>Мониторинг системы</h1>
+      <div class="sub">Локальные данные компьютера стримера. Ничего не отправляется на сервер.</div>
+      <div class="host" id="host"></div>
     </div>
-    <script>
-      let previous = null;
-      let previousAt = 0;
-      const formatBytes = (value) => {
-        if (!value) return '0 B';
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const index = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
-        return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
-      };
-      const uptime = (seconds) => {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        return `${days ? days + ' д ' : ''}${hours} ч`;
-      };
-      async function tick() {
-        try {
-          const data = await window.__TAURI__.core.invoke('system_metrics');
-          const now = Date.now();
-          document.getElementById('cpu').textContent = `${data.cpu.toFixed(0)}%`;
-          document.getElementById('cpu-bar').style.width = `${Math.min(100, data.cpu)}%`;
-          const memory = data.memory_total ? (data.memory_used / data.memory_total) * 100 : 0;
-          document.getElementById('memory').textContent = `${formatBytes(data.memory_used)} / ${formatBytes(data.memory_total)}`;
-          document.getElementById('memory-bar').style.width = `${memory}%`;
-          if (previous) {
-            const seconds = Math.max(0.5, (now - previousAt) / 1000);
-            const down = Math.max(0, (data.network_received - previous.network_received) / seconds);
-            const up = Math.max(0, (data.network_transmitted - previous.network_transmitted) / seconds);
-            document.getElementById('network').textContent = `${formatBytes(down)}/s ↓ · ${formatBytes(up)}/s ↑`;
-            document.getElementById('network-bar').style.width = `${Math.min(100, (down + up) / 1024 / 1024)}%`;
-          }
-          previous = data;
-          previousAt = now;
-          document.getElementById('processes').textContent = data.processes;
-          document.getElementById('uptime').textContent = `Аптайм: ${uptime(data.uptime)}`;
-          document.getElementById('disks').innerHTML = data.disks.map((disk) => {
-            const used = disk.total - disk.available;
-            return `<div class="disk"><span>${disk.mount} · ${formatBytes(used)} / ${formatBytes(disk.total)}</span><span>${disk.total ? ((used / disk.total) * 100).toFixed(0) : 0}%</span></div>`;
-          }).join('');
-        } catch (error) {
-          document.getElementById('processes').textContent = 'Ошибка';
-        }
-      }
-      tick();
-      setInterval(tick, 2000);
-    </script>
-  </body>
+    <div class="sub" id="updated">—</div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="label">CPU</div><div class="value" id="cpu">—</div><div class="bar"><span id="cpu-bar"></span></div></div>
+    <div class="card"><div class="label">GPU</div><div class="value" id="gpu">—</div><div class="bar"><span id="gpu-bar"></span></div></div>
+    <div class="card"><div class="label">Память</div><div class="value small" id="memory">—</div><div class="bar"><span id="memory-bar"></span></div></div>
+    <div class="card"><div class="label">Swap</div><div class="value small" id="swap">—</div><div class="bar"><span id="swap-bar"></span></div></div>
+    <div class="card"><div class="label">Процессы</div><div class="value" id="processes">—</div><div class="sub" id="uptime"></div></div>
+    <div class="card"><div class="label">Load average</div><div class="value small" id="load">—</div><div class="sub">1 / 5 / 15 мин</div></div>
+    <div class="card"><div class="label">CPU temp</div><div class="value small" id="cpu-temp">—</div><div class="sub">сенсоры</div></div>
+    <div class="card"><div class="label">GPU temp</div><div class="value small" id="gpu-temp">—</div><div class="sub">NVML</div></div>
+
+    <div class="card span3"><div class="section-head"><h2>CPU / GPU / RAM</h2><span class="sub">60 точек</span></div><canvas id="chart-load"></canvas></div>
+    <div class="card span3"><div class="section-head"><h2>Сеть</h2><span class="sub">↓ / ↑</span></div><canvas id="chart-net"></canvas></div>
+    <div class="card span3"><div class="section-head"><h2>Диски: чтение / запись</h2><span class="sub">байт/с</span></div><canvas id="chart-io"></canvas></div>
+    <div class="card span3"><div class="section-head"><h2>Load / процессы</h2><span class="sub">1 мин / шт.</span></div><canvas id="chart-extra"></canvas></div>
+
+    <div class="card span6"><h2>Ядра CPU</h2><div class="cores" id="cores"></div></div>
+
+    <div class="card span3"><h2>Память</h2><div id="memory-modules"></div></div>
+    <div class="card span3"><h2>Батареи и периферия</h2><div id="batteries"></div><div id="peripherals"></div></div>
+
+    <div class="card span6"><h2>Железо</h2><div class="chips" id="hardware"></div></div>
+    <div class="card span6"><h2>Использование накопителей</h2><div id="disk-usage"></div></div>
+    <div class="card span6"><h2>Тома и разметка</h2><div class="table-wrap" id="volumes"></div></div>
+    <div class="card span6"><h2>Здоровье накопителей</h2><div class="sub" id="smart-note">smartctl проверяется при обновлении.</div><div id="disk-health"></div></div>
+
+    <div class="card span4"><h2>Процессы</h2><div class="table-wrap"><table><thead><tr><th>PID</th><th>Процесс</th><th>CPU</th><th>RAM</th><th>Статус</th></tr></thead><tbody id="process-list"></tbody></table></div></div>
+    <div class="card span2"><h2>Интерфейсы</h2><div class="table-wrap"><table><thead><tr><th>Интерфейс</th><th>↓ / ↑</th><th>Пакеты</th></tr></thead><tbody id="network-list"></tbody></table></div></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { previous: null, previousAt: 0, load: [], netDown: [], netUp: [], ioRead: [], ioWrite: [], loadAvg: [], procCount: [], detailsAt: 0 };
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+const formatBytes = (value) => {
+  if (!value) return '0 B';
+  const units = ['B','KB','MB','GB','TB'];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
+  return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
+};
+const percent = (value, total) => total ? Math.max(0, Math.min(100, value / total * 100)) : 0;
+const uptime = (seconds) => {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${days ? days + ' д ' : ''}${hours} ч ${minutes} мин`;
+};
+const setBar = (id, value) => { const node = $(id); if (node) node.style.width = `${Math.max(0, Math.min(100, value))}%`; };
+const healthClass = (value) => /OK|PASSED/i.test(value) ? 'ok' : /FAILED|BAD/i.test(value) ? 'bad' : 'warn';
+const drawChart = (canvas, series) => {
+  const dpr = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || 500;
+  const height = canvas.clientHeight || 110;
+  if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+    canvas.width = Math.floor(width * dpr); canvas.height = Math.floor(height * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = '#2b183b'; ctx.lineWidth = 1;
+  for (let y = 0; y <= 100; y += 25) { const py = height - (y / 100) * (height - 12) - 6; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(width, py); ctx.stroke(); }
+  const colors = ['#ff2ea6', '#22e0ff', '#39ff88'];
+  series.forEach((item, index) => {
+    const values = item.values.slice(-60);
+    if (!values.length) return;
+    ctx.strokeStyle = colors[index % colors.length]; ctx.lineWidth = 2; ctx.beginPath();
+    values.forEach((value, i) => {
+      const x = values.length === 1 ? width : i / (values.length - 1) * width;
+      const y = height - (Math.max(0, Math.min(100, value)) / 100) * (height - 12) - 6;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+  });
+};
+const renderList = (id, items, render, empty = 'Нет данных') => {
+  $(id).innerHTML = items.length ? items.map(render).join('') : `<div class="empty">${escapeHtml(empty)}</div>`;
+};
+async function tick() {
+  try {
+    const data = await window.__TAURI__.core.invoke('system_metrics');
+    const now = Date.now();
+    $('host').innerHTML = [
+      data.host, data.os, `ядро ${data.kernel}`, `${data.arch} · ${data.bitness}-bit`,
+      data.cpu_brand, `${data.physical_cores} физ. / ${data.logical_cores} лог. ядер`,
+      data.cpu_frequency ? `${data.cpu_frequency} MHz` : '', data.gpu_name
+    ].filter(Boolean).map((value) => `<span class="chip">${escapeHtml(value)}</span>`).join('');
+    $('updated').textContent = `Обновлено ${new Date().toLocaleTimeString('ru-RU')}`;
+    $('cpu').textContent = `${data.cpu.toFixed(0)}%`; setBar('cpu-bar', data.cpu);
+    $('gpu').textContent = data.gpu == null ? '—' : `${data.gpu.toFixed(0)}%`; setBar('gpu-bar', data.gpu ?? 0);
+    const memory = percent(data.memory_used, data.memory_total);
+    $('memory').textContent = `${formatBytes(data.memory_used)} / ${formatBytes(data.memory_total)}`; setBar('memory-bar', memory);
+    const swap = percent(data.swap_used, data.swap_total);
+    $('swap').textContent = `${formatBytes(data.swap_used)} / ${formatBytes(data.swap_total)}`; setBar('swap-bar', swap);
+    $('processes').textContent = data.processes; $('uptime').textContent = `Аптайм: ${uptime(data.uptime)}`;
+    $('load').textContent = `${data.load_one.toFixed(2)} / ${data.load_five.toFixed(2)} / ${data.load_fifteen.toFixed(2)}`;
+    $('cpu-temp').textContent = data.cpu_temperature == null ? '—' : `${data.cpu_temperature.toFixed(0)}°C`;
+    $('gpu-temp').textContent = data.gpu_temperature == null ? '—' : `${data.gpu_temperature}°C`;
+    state.load.push({ cpu: data.cpu, gpu: data.gpu ?? 0, memory });
+    state.load = state.load.slice(-60);
+    state.loadAvg.push(data.load_one); state.procCount.push(data.processes);
+    state.loadAvg = state.loadAvg.slice(-60); state.procCount = state.procCount.slice(-60);
+    let down = 0, up = 0, read = 0, write = 0;
+    if (state.previous) {
+      const seconds = Math.max(.5, (now - state.previousAt) / 1000);
+      down = Math.max(0, (data.network_received - state.previous.network_received) / seconds);
+      up = Math.max(0, (data.network_transmitted - state.previous.network_transmitted) / seconds);
+      state.netDown.push(down); state.netUp.push(up);
+      state.netDown = state.netDown.slice(-60); state.netUp = state.netUp.slice(-60);
+      read = Math.max(0, (data.disks.reduce((sum, disk) => sum + disk.read_bytes, 0) - state.previous.disks.reduce((sum, disk) => sum + disk.read_bytes, 0)) / seconds);
+      write = Math.max(0, (data.disks.reduce((sum, disk) => sum + disk.written_bytes, 0) - state.previous.disks.reduce((sum, disk) => sum + disk.written_bytes, 0)) / seconds);
+      state.ioRead.push(read); state.ioWrite.push(write);
+      state.ioRead = state.ioRead.slice(-60); state.ioWrite = state.ioWrite.slice(-60);
+    }
+    state.previous = data; state.previousAt = now;
+    drawChart($('chart-load'), [{ values: state.load.map((item) => item.cpu) }, { values: state.load.map((item) => item.gpu) }, { values: state.load.map((item) => item.memory) }]);
+    drawChart($('chart-net'), [{ values: state.netDown.map((value) => Math.min(100, value / 1024 / 1024)) }, { values: state.netUp.map((value) => Math.min(100, value / 1024 / 1024)) }]);
+    drawChart($('chart-io'), [{ values: state.ioRead.map((value) => Math.min(100, value / 1024 / 1024)) }, { values: state.ioWrite.map((value) => Math.min(100, value / 1024 / 1024)) }]);
+    drawChart($('chart-extra'), [{ values: state.loadAvg.map((value) => Math.min(100, value * 10)) }, { values: state.procCount.map((value) => Math.min(100, value / 2)) }]);
+    $('cores').innerHTML = data.cpu_cores.map((core, index) => `<div class="core"><span>Core ${index + 1}</span><strong>${core.usage.toFixed(0)}%</strong><div class="bar"><span style="width:${Math.max(0, Math.min(100, core.usage))}%"></span></div><div>${core.frequency} MHz</div></div>`).join('');
+    renderList('process-list', data.process_list, (process) => `<tr><td>${process.pid}</td><td>${escapeHtml(process.name)}</td><td>${process.cpu.toFixed(1)}%</td><td>${formatBytes(process.memory)}</td><td>${escapeHtml(process.status)}</td></tr>`);
+    renderList('network-list', data.networks, (network) => `<tr><td>${escapeHtml(network.name)}</td><td>${formatBytes(network.received)} / ${formatBytes(network.transmitted)}</td><td>${network.packets_received} / ${network.packets_transmitted}</td></tr>`);
+    renderList('disk-usage', data.disks, (disk) => {
+      const used = disk.total - disk.available;
+      return `<div class="disk"><div class="disk-head"><strong>${escapeHtml(disk.mount || disk.name)} · ${escapeHtml(disk.kind)}</strong><span>${formatBytes(used)} / ${formatBytes(disk.total)}</span></div><div class="bar"><span style="width:${percent(used, disk.total)}%"></span></div><div class="disk-meta"><span>${escapeHtml(disk.file_system)}</span><span>${escapeHtml(disk.name)}</span>${disk.removable ? '<span>removable</span>' : ''}</div></div>`;
+    }, 'Накопители не найдены');
+    renderList('batteries', data.batteries, (battery) => `<div class="disk"><div class="disk-head"><strong>${escapeHtml(battery.name)}</strong><span class="${battery.percent != null && battery.percent < 20 ? 'bad' : 'ok'}">${battery.percent != null ? battery.percent.toFixed(0) + '%' : '—'}</span></div><div class="disk-meta"><span>${escapeHtml(battery.status)}</span></div></div>`, 'Батарей не найдено');
+    renderList('peripherals', data.peripherals, (item) => `<div class="disk"><div class="disk-head"><strong>${escapeHtml(item.name)}</strong><span class="chip">${escapeHtml(item.kind)}</span></div><div class="disk-meta">${escapeHtml(item.detail)}</div></div>`, 'USB-устройств не найдено');
+    if (now - state.detailsAt > 30000) { state.detailsAt = now; loadDetails(); }
+  } catch (error) {
+    $('updated').textContent = `Ошибка: ${String(error)}`;
+  }
+}
+async function loadDetails() {
+  try {
+    const details = await window.__TAURI__.core.invoke('system_details');
+    $('hardware').innerHTML = [
+      ['Плата', details.board_vendor, details.board_name], ['BIOS', details.bios_vendor, details.bios_version, details.bios_date],
+      ['Устройство', details.product_name, details.serial]
+    ].map(([label, ...values]) => `<span class="chip">${escapeHtml(label)}: ${escapeHtml(values.filter(Boolean).join(' · ') || '—')}</span>`).join('');
+    renderList('memory-modules', details.memory, (module) => `<div class="disk"><div class="disk-head"><strong>${escapeHtml(module.locator || module.bank || 'Модуль')}</strong><span class="chip">${escapeHtml(module.size)}</span></div><div class="disk-meta"><span>${escapeHtml(module.kind)}</span><span>${escapeHtml(module.speed)}</span><span>${escapeHtml(module.manufacturer)}</span><span>${escapeHtml(module.part_number)}</span></div></div>`, 'Тип памяти недоступен (нужен dmidecode/root)');
+    renderList('volumes', details.volumes, (volume) => `<tr><td>${escapeHtml(volume.name)}</td><td>${escapeHtml(volume.path)}</td><td>${escapeHtml(volume.kind)}</td><td>${formatBytes(volume.size)}</td><td>${escapeHtml(volume.file_system || '—')}</td><td>${escapeHtml(volume.mount || '—')}</td><td>${escapeHtml(volume.parent || '—')}</td></tr>`, 'Разметка недоступна');
+    if (!details.disks.length) { $('smart-note').textContent = 'Нет данных SMART. Установите smartmontools и проверьте права.'; $('disk-health').innerHTML = ''; return; }
+    $('smart-note').textContent = 'SMART через smartctl. Для некоторых дисков нужны права root.';
+    $('disk-health').innerHTML = details.disks.map((disk) => `<div class="disk"><div class="disk-head"><strong>${escapeHtml(disk.device)} · ${escapeHtml(disk.model)}</strong><span class="health ${healthClass(disk.health)}">${escapeHtml(disk.health)}</span></div><div class="disk-meta"><span>${escapeHtml(disk.serial)}</span><span>${escapeHtml(disk.firmware)}</span>${disk.temperature_c != null ? `<span>${disk.temperature_c}°C</span>` : ''}${disk.power_on_hours != null ? `<span>${disk.power_on_hours} ч</span>` : ''}${disk.wear_percent != null ? `<span>износ ${disk.wear_percent}%</span>` : ''}${disk.reallocated_sectors != null ? `<span>realloc ${disk.reallocated_sectors}</span>` : ''}${disk.pending_sectors != null ? `<span>pending ${disk.pending_sectors}</span>` : ''}${disk.uncorrectable_sectors != null ? `<span>uncorrectable ${disk.uncorrectable_sectors}</span>` : ''}${disk.data_written_bytes != null ? `<span>записано ${formatBytes(disk.data_written_bytes)}</span>` : ''}${disk.data_read_bytes != null ? `<span>прочитано ${formatBytes(disk.data_read_bytes)}</span>` : ''}</div>${disk.note ? `<div class="disk-meta">${escapeHtml(disk.note)}</div>` : ''}</div>`).join('');
+  } catch (error) {
+    $('smart-note').textContent = `Ошибка деталей: ${String(error)}`;
+  }
+}
+tick();
+setInterval(tick, 2000);
+</script>
+</body>
 </html>

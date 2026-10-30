@@ -276,7 +276,14 @@ pub async fn mute(input: String) -> Result<Value, String> {
 pub async fn create_scene(scene: String) -> Result<Value, String> {
     let mut guard = CLIENT.lock().await;
     let result = match guard.as_mut() {
-        Some(client) => request(&mut client.socket, "CreateScene", json!({ "sceneName": scene })).await,
+        Some(client) => {
+            request(
+                &mut client.socket,
+                "CreateScene",
+                json!({ "sceneName": scene }),
+            )
+            .await
+        }
         None => Err("OBS WebSocket не подключён".to_string()),
     };
     if result.is_ok() {
@@ -284,7 +291,12 @@ pub async fn create_scene(scene: String) -> Result<Value, String> {
     }
     reconnect(&mut guard).await?;
     let client = guard.as_mut().expect("client reconnected");
-    request(&mut client.socket, "CreateScene", json!({ "sceneName": scene })).await
+    request(
+        &mut client.socket,
+        "CreateScene",
+        json!({ "sceneName": scene }),
+    )
+    .await
 }
 
 pub async fn reorder_scene(scene: String, index: i64) -> Result<Value, String> {
