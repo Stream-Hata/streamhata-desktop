@@ -1,0 +1,1 @@
+import{$r as re,_ as DS,ki as xi}from"./chunk-Dxd1qupI.js";import{I as St}from"./chunk-qZnnpw69.js";function c(r,e,m=[]){let o=new St(r(),{nonNullable:!0,validators:m}),f=e.get(re);return o.valueChanges.pipe(DS(f)).subscribe(t=>r.set(t)),xi(()=>{let t=r();o.value!==t&&o.setValue(t,{emitEvent:!1})},{injector:e}),o}export{c as t};
