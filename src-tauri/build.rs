@@ -38,6 +38,8 @@ fn main() {
             "obs_scene_item_create",
             "obs_scene_delete",
             "obs_scene_rename",
+            "obs_input_settings",
+            "obs_set_input_settings",
             "obs_open_input_properties",
         ]),
     ))

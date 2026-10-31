@@ -459,9 +459,9 @@ async fn scene_screenshot_once(guard: &mut Option<Client>, scene: &str) -> Resul
         json!({
             "sourceName": scene,
             "imageFormat": "jpg",
-            "imageWidth": 1600,
-            "imageHeight": 900,
-            "imageCompressionQuality": 82,
+            "imageWidth": 960,
+            "imageHeight": 540,
+            "imageCompressionQuality": 68,
         }),
     )
     .await?;
@@ -570,6 +570,32 @@ pub async fn obs_scene_item_create(scene: String, source: String) -> Result<Valu
     }
     reconnect(&mut guard).await?;
     scene_item_request(&mut guard, "CreateSceneItem", data).await
+}
+
+pub async fn input_settings(input: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "inputName": input });
+    let result = scene_item_request(&mut guard, "GetInputSettings", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "GetInputSettings", data).await
+}
+
+pub async fn set_input_settings(input: String, settings: Value) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({
+        "inputName": input,
+        "inputSettings": settings,
+        "overlay": true
+    });
+    let result = scene_item_request(&mut guard, "SetInputSettings", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "SetInputSettings", data).await
 }
 
 pub async fn open_input_properties(input: String) -> Result<Value, String> {

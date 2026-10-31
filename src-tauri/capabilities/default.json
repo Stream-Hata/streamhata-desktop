@@ -57,7 +57,9 @@
     "allow-obs-scene-item-create",
     "allow-obs-scene-delete",
     "allow-obs-scene-rename",
-    "allow-obs-open-input-properties"
+    "allow-obs-open-input-properties",
+    "allow-obs-input-settings",
+    "allow-obs-set-input-settings"
   ],
   "remote": {
     "urls": [

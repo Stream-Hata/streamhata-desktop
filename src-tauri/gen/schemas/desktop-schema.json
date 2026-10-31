@@ -267,6 +267,12 @@
           "markdownDescription": "Enables the obs_disconnect command without any pre-configured scope."
         },
         {
+          "description": "Enables the obs_input_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-input-settings",
+          "markdownDescription": "Enables the obs_input_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the obs_mute command without any pre-configured scope.",
           "type": "string",
           "const": "allow-obs-mute",
@@ -355,6 +361,12 @@
           "type": "string",
           "const": "allow-obs-scene-screenshot",
           "markdownDescription": "Enables the obs_scene_screenshot command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_set_input_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-set-input-settings",
+          "markdownDescription": "Enables the obs_set_input_settings command without any pre-configured scope."
         },
         {
           "description": "Enables the obs_status command without any pre-configured scope.",
@@ -549,6 +561,12 @@
           "markdownDescription": "Denies the obs_disconnect command without any pre-configured scope."
         },
         {
+          "description": "Denies the obs_input_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-input-settings",
+          "markdownDescription": "Denies the obs_input_settings command without any pre-configured scope."
+        },
+        {
           "description": "Denies the obs_mute command without any pre-configured scope.",
           "type": "string",
           "const": "deny-obs-mute",
@@ -637,6 +655,12 @@
           "type": "string",
           "const": "deny-obs-scene-screenshot",
           "markdownDescription": "Denies the obs_scene_screenshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_set_input_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-set-input-settings",
+          "markdownDescription": "Denies the obs_set_input_settings command without any pre-configured scope."
         },
         {
           "description": "Denies the obs_status command without any pre-configured scope.",

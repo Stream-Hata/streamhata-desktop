@@ -2495,6 +2495,19 @@ async fn obs_scene_item_create(scene: String, source: String) -> Result<serde_js
 }
 
 #[tauri::command]
+async fn obs_input_settings(input: String) -> Result<serde_json::Value, String> {
+    obs::input_settings(input).await
+}
+
+#[tauri::command]
+async fn obs_set_input_settings(
+    input: String,
+    settings: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    obs::set_input_settings(input, settings).await
+}
+
+#[tauri::command]
 async fn obs_open_input_properties(input: String) -> Result<serde_json::Value, String> {
     obs::open_input_properties(input).await
 }
@@ -3398,6 +3411,8 @@ pub fn run() {
             obs_scene_item_index,
             obs_scene_item_remove,
             obs_scene_item_create,
+            obs_input_settings,
+            obs_set_input_settings,
             obs_open_input_properties,
             obs_scene_delete,
             obs_scene_rename
