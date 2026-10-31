@@ -108,6 +108,7 @@ jobs:
 
       - name: Upload updater manifest
         if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
