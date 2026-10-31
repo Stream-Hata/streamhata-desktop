@@ -1,0 +1,1 @@
+import{p as Cn}from"./chunk-BqCv_zJ1.js";var u=(()=>{class e{transform(i,t,...r){return t(i,...r)}static{this.ɵfac=function(t){return new(t||e)}}static{this.ɵpipe=Cn({name:`tuiMapper`,type:e,pure:!0})}}return e})();export{u as t};

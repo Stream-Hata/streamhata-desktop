@@ -63,6 +63,9 @@ struct ProcessMetric {
     cpu: f32,
     memory: u64,
     status: String,
+    exe: String,
+    cmd: String,
+    user: String,
 }
 
 #[derive(Serialize)]
@@ -74,6 +77,11 @@ struct NetworkMetric {
     packets_transmitted: u64,
     errors_received: u64,
     errors_transmitted: u64,
+    kind: String,
+    ssid: Option<String>,
+    signal: Option<i32>,
+    bitrate: Option<f64>,
+    link_speed: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -88,6 +96,14 @@ struct PeripheralMetric {
     name: String,
     kind: String,
     detail: String,
+}
+
+#[derive(Serialize)]
+struct SensorMetric {
+    name: String,
+    kind: String,
+    value: f64,
+    unit: String,
 }
 
 #[derive(Serialize)]
@@ -197,7 +213,10 @@ struct SystemMetrics {
     cpu_frequency: u64,
     gpu_name: String,
     gpu_temperature: Option<i64>,
+    gpu_memory_total: Option<u64>,
+    gpu_memory_used: Option<u64>,
     cpu_temperature: Option<f32>,
+    sensors: Vec<SensorMetric>,
 }
 
 #[cfg(target_os = "linux")]
@@ -274,6 +293,70 @@ fn gpu_details() -> (Option<String>, Option<i64>) {
         .ok()
         .map(|value| value as i64);
     (name, temperature)
+}
+
+#[cfg(target_os = "linux")]
+fn gpu_memory() -> (Option<u64>, Option<u64>) {
+    if let Ok(nvml) = nvml_wrapper::Nvml::init() {
+        if let Ok(device) = nvml.device_by_index(0) {
+            if let Ok(info) = device.memory_info() {
+                return (Some(info.total), Some(info.used));
+            }
+        }
+    }
+
+    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+        return (None, None);
+    };
+    for entry in entries.flatten() {
+        let device = entry.path().join("device");
+        let total = std::fs::read_to_string(device.join("mem_info_vram_total"))
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok());
+        let used = std::fs::read_to_string(device.join("mem_info_vram_used"))
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok());
+        if total.is_some() || used.is_some() {
+            return (total, used);
+        }
+    }
+
+    (None, None)
+}
+
+#[cfg(target_os = "windows")]
+fn gpu_memory() -> (Option<u64>, Option<u64>) {
+    let Ok(output) = Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=memory.total,memory.used",
+            "--format=csv,noheader,nounits",
+        ])
+        .output()
+    else {
+        return (None, None);
+    };
+    if !output.status.success() {
+        return (None, None);
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let Some(line) = text.lines().next() else {
+        return (None, None);
+    };
+    let mut parts = line.split(',').map(str::trim);
+    let total = parts
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| value * 1024 * 1024);
+    let used = parts
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| value * 1024 * 1024);
+    (total, used)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn gpu_memory() -> (Option<u64>, Option<u64>) {
+    (None, None)
 }
 
 #[cfg(target_os = "windows")]
@@ -597,6 +680,190 @@ fn cpu_temperature() -> Option<f32> {
     None
 }
 
+#[cfg(target_os = "linux")]
+fn sensor_metrics() -> Vec<SensorMetric> {
+    let Ok(entries) = std::fs::read_dir("/sys/class/hwmon") else {
+        return Vec::new();
+    };
+    let mut result = Vec::new();
+    for entry in entries.flatten() {
+        let dir = entry.path();
+        let chip = std::fs::read_to_string(dir.join("name"))
+            .unwrap_or_else(|_| "hwmon".to_string())
+            .trim()
+            .to_string();
+        let Ok(files) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for file in files.flatten() {
+            let file_name = file.file_name().to_string_lossy().to_string();
+            let Some(base) = file_name.strip_suffix("_input") else {
+                continue;
+            };
+            let Some(raw) = std::fs::read_to_string(file.path())
+                .ok()
+                .and_then(|value| value.trim().parse::<f64>().ok())
+            else {
+                continue;
+            };
+            let (kind, value, unit) = if base.starts_with("temp") {
+                ("temperature", raw / 1000.0, "°C")
+            } else if base.starts_with("fan") {
+                ("fan", raw, "RPM")
+            } else if base.starts_with("in") {
+                ("voltage", raw / 1000.0, "V")
+            } else if base.starts_with("power") {
+                ("power", raw / 1_000_000.0, "W")
+            } else {
+                continue;
+            };
+            let label = std::fs::read_to_string(dir.join(format!("{base}_label")))
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| base.to_string());
+            result.push(SensorMetric {
+                name: format!("{chip}: {label}"),
+                kind: kind.to_string(),
+                value,
+                unit: unit.to_string(),
+            });
+        }
+    }
+    result
+}
+
+#[cfg(target_os = "windows")]
+fn sensor_metrics() -> Vec<SensorMetric> {
+    let Some(value) = powershell_json("@(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue | Select-Object InstanceName,CurrentTemperature) | ConvertTo-Json -Compress -Depth 3") else {
+        return Vec::new();
+    };
+    json_array(value)
+        .into_iter()
+        .filter_map(|item| {
+            let raw = item["CurrentTemperature"].as_f64()?;
+            Some(SensorMetric {
+                name: item["InstanceName"]
+                    .as_str()
+                    .unwrap_or("Thermal zone")
+                    .to_string(),
+                kind: "temperature".to_string(),
+                value: raw / 10.0 - 273.15,
+                unit: "°C".to_string(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn sensor_metrics() -> Vec<SensorMetric> {
+    Vec::new()
+}
+
+#[cfg(target_os = "linux")]
+fn network_extra(
+    name: &str,
+) -> (
+    String,
+    Option<String>,
+    Option<i32>,
+    Option<f64>,
+    Option<u64>,
+) {
+    let base = format!("/sys/class/net/{name}");
+    let wireless = std::path::Path::new(&base).join("wireless").exists() || name.starts_with("wl");
+    let kind = if name == "lo" {
+        "loopback"
+    } else if wireless {
+        "wifi"
+    } else if name.starts_with("en") || name.starts_with("eth") {
+        "ethernet"
+    } else {
+        "other"
+    };
+    let link_speed = std::fs::read_to_string(format!("{base}/speed"))
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0);
+    let mut ssid = None;
+    let mut signal = None;
+    let mut bitrate = None;
+
+    if wireless {
+        if let Ok(output) = Command::new("iwgetid").args(["-r", name]).output() {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !text.is_empty() {
+                ssid = Some(text);
+            }
+        }
+        if let Ok(output) = Command::new("iw").args(["dev", name, "link"]).output() {
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let line = line.trim();
+                if let Some(value) = line.strip_prefix("signal:") {
+                    signal = value
+                        .split_whitespace()
+                        .next()
+                        .and_then(|value| value.parse::<i32>().ok());
+                }
+                if let Some(value) = line.strip_prefix("bitrate:") {
+                    bitrate = value
+                        .split_whitespace()
+                        .next()
+                        .and_then(|value| value.parse::<f64>().ok());
+                }
+            }
+        }
+    }
+
+    (kind.to_string(), ssid, signal, bitrate, link_speed)
+}
+
+#[cfg(target_os = "windows")]
+fn network_extra(
+    name: &str,
+) -> (
+    String,
+    Option<String>,
+    Option<i32>,
+    Option<f64>,
+    Option<u64>,
+) {
+    let script = format!(
+        "Get-NetAdapter -Name '{}' | Select-Object InterfaceDescription,LinkSpeed,MediaType,PhysicalMediaType | ConvertTo-Json -Compress",
+        name.replace('\'', "''")
+    );
+    let Some(value) = powershell_json(&script) else {
+        return ("other".to_string(), None, None, None, None);
+    };
+    let media = value["PhysicalMediaType"].as_str().unwrap_or_default();
+    let kind = if media.contains("802.11") || media.contains("Wireless") {
+        "wifi"
+    } else if media.is_empty() {
+        "other"
+    } else {
+        "ethernet"
+    };
+    let speed = value["LinkSpeed"]
+        .as_str()
+        .and_then(|text| text.split_whitespace().next())
+        .and_then(|value| value.parse::<f64>().ok())
+        .map(|value| (value * 1_000_000.0) as u64);
+    (kind.to_string(), None, None, None, speed)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn network_extra(
+    _name: &str,
+) -> (
+    String,
+    Option<String>,
+    Option<i32>,
+    Option<f64>,
+    Option<u64>,
+) {
+    ("other".to_string(), None, None, None, None)
+}
+
 #[tauri::command]
 fn system_metrics() -> SystemMetrics {
     let mut system = System::new_all();
@@ -609,14 +876,22 @@ fn system_metrics() -> SystemMetrics {
     let network_list: Vec<NetworkMetric> = networks
         .list()
         .iter()
-        .map(|(name, network)| NetworkMetric {
-            name: name.clone(),
-            received: network.total_received(),
-            transmitted: network.total_transmitted(),
-            packets_received: network.total_packets_received(),
-            packets_transmitted: network.total_packets_transmitted(),
-            errors_received: network.total_errors_on_received(),
-            errors_transmitted: network.total_errors_on_transmitted(),
+        .map(|(name, network)| {
+            let (kind, ssid, signal, bitrate, link_speed) = network_extra(name);
+            NetworkMetric {
+                name: name.clone(),
+                received: network.total_received(),
+                transmitted: network.total_transmitted(),
+                packets_received: network.total_packets_received(),
+                packets_transmitted: network.total_packets_transmitted(),
+                errors_received: network.total_errors_on_received(),
+                errors_transmitted: network.total_errors_on_transmitted(),
+                kind,
+                ssid,
+                signal,
+                bitrate,
+                link_speed,
+            }
         })
         .collect();
     let network_received = network_list.iter().map(|item| item.received).sum();
@@ -658,6 +933,20 @@ fn system_metrics() -> SystemMetrics {
             cpu: process.cpu_usage(),
             memory: process.memory(),
             status: format!("{:?}", process.status()),
+            exe: process
+                .exe()
+                .map(|path| path.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            cmd: process
+                .cmd()
+                .iter()
+                .map(|part| part.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" "),
+            user: process
+                .user_id()
+                .map(|user| user.to_string())
+                .unwrap_or_default(),
         })
         .collect();
     process_list.sort_by(|left, right| {
@@ -665,10 +954,12 @@ fn system_metrics() -> SystemMetrics {
             .cpu
             .partial_cmp(&left.cpu)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.pid.cmp(&right.pid))
     });
     process_list.truncate(20);
 
     let load = System::load_average();
+    let (gpu_memory_total, gpu_memory_used) = gpu_memory();
     SystemMetrics {
         cpu: system.global_cpu_usage(),
         gpu: gpu_usage(),
@@ -716,7 +1007,10 @@ fn system_metrics() -> SystemMetrics {
             .unwrap_or(0),
         gpu_name: gpu_details().0.unwrap_or_default(),
         gpu_temperature: gpu_details().1,
+        gpu_memory_total,
+        gpu_memory_used,
         cpu_temperature: cpu_temperature(),
+        sensors: sensor_metrics(),
     }
 }
 
@@ -760,7 +1054,7 @@ fn peripheral_metrics() -> Vec<PeripheralMetric> {
     let Ok(entries) = std::fs::read_dir("/sys/bus/usb/devices") else {
         return Vec::new();
     };
-    entries
+    let mut result: Vec<PeripheralMetric> = entries
         .flatten()
         .filter_map(|entry| {
             let path = entry.path();
@@ -777,7 +1071,25 @@ fn peripheral_metrics() -> Vec<PeripheralMetric> {
                     .to_string(),
             })
         })
-        .collect()
+        .collect();
+    if let Ok(output) = Command::new("bluetoothctl").arg("devices").output() {
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let Some(rest) = line.trim().strip_prefix("Device ") else {
+                continue;
+            };
+            let mut parts = rest.splitn(2, ' ');
+            let address = parts.next().unwrap_or_default().to_string();
+            let name = parts.next().unwrap_or_default().trim().to_string();
+            if !name.is_empty() {
+                result.push(PeripheralMetric {
+                    name,
+                    kind: "Bluetooth".to_string(),
+                    detail: address,
+                });
+            }
+        }
+    }
+    result
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
@@ -1142,6 +1454,50 @@ fn disk_health() -> Vec<DiskHealth> {
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
 fn disk_health() -> Vec<DiskHealth> {
     Vec::new()
+}
+
+#[tauri::command]
+fn kill_process(pid: u32) -> Result<(), String> {
+    if pid <= 1 {
+        return Err("Нельзя завершить системный процесс".to_string());
+    }
+    if pid == std::process::id() {
+        return Err("Нельзя завершить процесс самого приложения".to_string());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let status = Command::new("kill")
+            .args(["-TERM", &pid.to_string()])
+            .status()
+            .map_err(|error| error.to_string())?;
+
+        if !status.success() {
+            return Err(format!("kill завершился с кодом {}", status));
+        }
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let status = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .status()
+            .map_err(|error| error.to_string())?;
+
+        if !status.success() {
+            return Err(format!("taskkill завершился с кодом {}", status));
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = pid;
+        Err("Завершение процессов не поддерживается".to_string())
+    }
 }
 
 #[tauri::command]
@@ -2982,6 +3338,7 @@ pub fn run() {
             system_details,
             system_widget_enabled,
             set_system_widget_enabled,
+            kill_process,
             system_overlay_url,
             open_system_window,
             show_splash,
