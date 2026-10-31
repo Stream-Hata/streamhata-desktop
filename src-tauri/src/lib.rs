@@ -1658,6 +1658,7 @@ fn finish_changelog(app: AppHandle) {
 fn open_system_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("system") {
         let _ = window.show();
+        let _ = window.maximize();
         let _ = window.set_focus();
 
         return Ok(());
@@ -1665,8 +1666,8 @@ fn open_system_window(app: AppHandle) -> Result<(), String> {
 
     WebviewWindowBuilder::new(&app, "system", WebviewUrl::App("system.html".into()))
         .title("Nameless StreamHata · Система")
-        .inner_size(760.0, 640.0)
-        .min_inner_size(560.0, 480.0)
+        .inner_size(1280.0, 900.0)
+        .min_inner_size(900.0, 640.0)
         .build()
         .map(|_| ())
         .map_err(|error| error.to_string())
@@ -2827,12 +2828,6 @@ pub fn run() {
                 .on_navigation(move |url| {
                     if url.path() == "/app/restart" || (url.scheme() == "streamhata" && url.host_str() == Some("restart")) {
                         restart_onboarding(&app_for_nav);
-                    }
-
-                    if url.path() == "/app/system" {
-                        let _ = open_system_window(app_for_nav.clone());
-
-                        return false;
                     }
 
                     if url.scheme() == "streamhata" {
