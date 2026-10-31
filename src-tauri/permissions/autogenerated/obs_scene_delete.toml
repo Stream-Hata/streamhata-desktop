@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-obs-scene-delete"
+description = "Enables the obs_scene_delete command without any pre-configured scope."
+commands.allow = ["obs_scene_delete"]
+
+[[permission]]
+identifier = "deny-obs-scene-delete"
+description = "Denies the obs_scene_delete command without any pre-configured scope."
+commands.deny = ["obs_scene_delete"]

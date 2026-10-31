@@ -43,7 +43,21 @@
     "allow-check-update-manual",
     "allow-set-cat-tray",
     "allow-notify-cat",
-    "allow-update-ui-state"
+    "allow-update-ui-state",
+    "allow-system-details",
+    "allow-kill-process",
+    "allow-obs-auto-connect",
+    "allow-obs-scene-items",
+    "allow-obs-scene-screenshot",
+    "allow-obs-scene-item-transform",
+    "allow-obs-scene-item-enabled",
+    "allow-obs-scene-item-locked",
+    "allow-obs-scene-item-index",
+    "allow-obs-scene-item-remove",
+    "allow-obs-scene-item-create",
+    "allow-obs-scene-delete",
+    "allow-obs-scene-rename",
+    "allow-obs-open-input-properties"
   ],
   "remote": {
     "urls": [

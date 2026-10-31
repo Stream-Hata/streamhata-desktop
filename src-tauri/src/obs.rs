@@ -572,6 +572,17 @@ pub async fn obs_scene_item_create(scene: String, source: String) -> Result<Valu
     scene_item_request(&mut guard, "CreateSceneItem", data).await
 }
 
+pub async fn open_input_properties(input: String) -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let data = json!({ "inputName": input });
+    let result = scene_item_request(&mut guard, "OpenInputPropertiesDialog", data.clone()).await;
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    scene_item_request(&mut guard, "OpenInputPropertiesDialog", data).await
+}
+
 pub async fn obs_scene_delete(scene: String) -> Result<Value, String> {
     let mut guard = CLIENT.lock().await;
     let data = json!({ "sceneName": scene });

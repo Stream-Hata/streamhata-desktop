@@ -231,10 +231,22 @@
           "markdownDescription": "Enables the install_update command without any pre-configured scope."
         },
         {
+          "description": "Enables the kill_process command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-kill-process",
+          "markdownDescription": "Enables the kill_process command without any pre-configured scope."
+        },
+        {
           "description": "Enables the notify_cat command without any pre-configured scope.",
           "type": "string",
           "const": "allow-notify-cat",
           "markdownDescription": "Enables the notify_cat command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_auto_connect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-auto-connect",
+          "markdownDescription": "Enables the obs_auto_connect command without any pre-configured scope."
         },
         {
           "description": "Enables the obs_connect command without any pre-configured scope.",
@@ -261,6 +273,12 @@
           "markdownDescription": "Enables the obs_mute command without any pre-configured scope."
         },
         {
+          "description": "Enables the obs_open_input_properties command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-open-input-properties",
+          "markdownDescription": "Enables the obs_open_input_properties command without any pre-configured scope."
+        },
+        {
           "description": "Enables the obs_output command without any pre-configured scope.",
           "type": "string",
           "const": "allow-obs-output",
@@ -277,6 +295,66 @@
           "type": "string",
           "const": "allow-obs-scene",
           "markdownDescription": "Enables the obs_scene command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-delete",
+          "markdownDescription": "Enables the obs_scene_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_item_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-item-create",
+          "markdownDescription": "Enables the obs_scene_item_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_item_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-item-enabled",
+          "markdownDescription": "Enables the obs_scene_item_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_item_index command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-item-index",
+          "markdownDescription": "Enables the obs_scene_item_index command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_item_locked command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-item-locked",
+          "markdownDescription": "Enables the obs_scene_item_locked command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_item_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-item-remove",
+          "markdownDescription": "Enables the obs_scene_item_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_item_transform command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-item-transform",
+          "markdownDescription": "Enables the obs_scene_item_transform command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_items command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-items",
+          "markdownDescription": "Enables the obs_scene_items command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_rename command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-rename",
+          "markdownDescription": "Enables the obs_scene_rename command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the obs_scene_screenshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-scene-screenshot",
+          "markdownDescription": "Enables the obs_scene_screenshot command without any pre-configured scope."
         },
         {
           "description": "Enables the obs_status command without any pre-configured scope.",
@@ -349,6 +427,12 @@
           "type": "string",
           "const": "allow-start-desktop-login",
           "markdownDescription": "Enables the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the system_details command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-system-details",
+          "markdownDescription": "Enables the system_details command without any pre-configured scope."
         },
         {
           "description": "Enables the system_metrics command without any pre-configured scope.",
@@ -429,10 +513,22 @@
           "markdownDescription": "Denies the install_update command without any pre-configured scope."
         },
         {
+          "description": "Denies the kill_process command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-kill-process",
+          "markdownDescription": "Denies the kill_process command without any pre-configured scope."
+        },
+        {
           "description": "Denies the notify_cat command without any pre-configured scope.",
           "type": "string",
           "const": "deny-notify-cat",
           "markdownDescription": "Denies the notify_cat command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_auto_connect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-auto-connect",
+          "markdownDescription": "Denies the obs_auto_connect command without any pre-configured scope."
         },
         {
           "description": "Denies the obs_connect command without any pre-configured scope.",
@@ -459,6 +555,12 @@
           "markdownDescription": "Denies the obs_mute command without any pre-configured scope."
         },
         {
+          "description": "Denies the obs_open_input_properties command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-open-input-properties",
+          "markdownDescription": "Denies the obs_open_input_properties command without any pre-configured scope."
+        },
+        {
           "description": "Denies the obs_output command without any pre-configured scope.",
           "type": "string",
           "const": "deny-obs-output",
@@ -475,6 +577,66 @@
           "type": "string",
           "const": "deny-obs-scene",
           "markdownDescription": "Denies the obs_scene command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-delete",
+          "markdownDescription": "Denies the obs_scene_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_item_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-item-create",
+          "markdownDescription": "Denies the obs_scene_item_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_item_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-item-enabled",
+          "markdownDescription": "Denies the obs_scene_item_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_item_index command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-item-index",
+          "markdownDescription": "Denies the obs_scene_item_index command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_item_locked command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-item-locked",
+          "markdownDescription": "Denies the obs_scene_item_locked command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_item_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-item-remove",
+          "markdownDescription": "Denies the obs_scene_item_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_item_transform command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-item-transform",
+          "markdownDescription": "Denies the obs_scene_item_transform command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_items command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-items",
+          "markdownDescription": "Denies the obs_scene_items command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_rename command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-rename",
+          "markdownDescription": "Denies the obs_scene_rename command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_scene_screenshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-scene-screenshot",
+          "markdownDescription": "Denies the obs_scene_screenshot command without any pre-configured scope."
         },
         {
           "description": "Denies the obs_status command without any pre-configured scope.",
@@ -547,6 +709,12 @@
           "type": "string",
           "const": "deny-start-desktop-login",
           "markdownDescription": "Denies the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the system_details command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-system-details",
+          "markdownDescription": "Denies the system_details command without any pre-configured scope."
         },
         {
           "description": "Denies the system_metrics command without any pre-configured scope.",

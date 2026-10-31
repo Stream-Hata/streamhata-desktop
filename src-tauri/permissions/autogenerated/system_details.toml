@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-system-details"
+description = "Enables the system_details command without any pre-configured scope."
+commands.allow = ["system_details"]
+
+[[permission]]
+identifier = "deny-system-details"
+description = "Denies the system_details command without any pre-configured scope."
+commands.deny = ["system_details"]

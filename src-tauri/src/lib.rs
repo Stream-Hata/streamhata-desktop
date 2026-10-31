@@ -2495,6 +2495,11 @@ async fn obs_scene_item_create(scene: String, source: String) -> Result<serde_js
 }
 
 #[tauri::command]
+async fn obs_open_input_properties(input: String) -> Result<serde_json::Value, String> {
+    obs::open_input_properties(input).await
+}
+
+#[tauri::command]
 async fn obs_scene_delete(scene: String) -> Result<serde_json::Value, String> {
     obs::obs_scene_delete(scene).await
 }
@@ -3393,6 +3398,7 @@ pub fn run() {
             obs_scene_item_index,
             obs_scene_item_remove,
             obs_scene_item_create,
+            obs_open_input_properties,
             obs_scene_delete,
             obs_scene_rename
         ])

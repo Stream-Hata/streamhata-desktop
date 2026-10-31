@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-obs-scene-item-remove"
+description = "Enables the obs_scene_item_remove command without any pre-configured scope."
+commands.allow = ["obs_scene_item_remove"]
+
+[[permission]]
+identifier = "deny-obs-scene-item-remove"
+description = "Denies the obs_scene_item_remove command without any pre-configured scope."
+commands.deny = ["obs_scene_item_remove"]

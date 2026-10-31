@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-obs-open-input-properties"
+description = "Enables the obs_open_input_properties command without any pre-configured scope."
+commands.allow = ["obs_open_input_properties"]
+
+[[permission]]
+identifier = "deny-obs-open-input-properties"
+description = "Denies the obs_open_input_properties command without any pre-configured scope."
+commands.deny = ["obs_open_input_properties"]
