@@ -3180,18 +3180,20 @@ pub fn run() {
                 save_onboarding_state(app.handle(), choice, virus);
             }
 
-            let state = changelog_state(app.handle());
+            let mut state = changelog_state(app.handle());
             let mut show_changelog = false;
+
+            // A new version is a fresh release note, even if the user previously
+            // chose not to see release notes for an older version.
+            if state.version != APP_VERSION {
+                state.never = false;
+            }
 
             if !state.never && state.version != APP_VERSION {
                 let (view, never) = native_changelog_choice();
 
-                if view {
-                    show_changelog = true;
-                    save_changelog_state(app.handle(), never);
-                } else if never {
-                    save_changelog_state(app.handle(), true);
-                }
+                show_changelog = view;
+                save_changelog_state(app.handle(), never);
             }
 
             register_update_actions(app.handle());

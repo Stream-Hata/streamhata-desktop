@@ -461,7 +461,7 @@ async fn scene_screenshot_once(guard: &mut Option<Client>, scene: &str) -> Resul
             "imageFormat": "jpg",
             "imageWidth": 1280,
             "imageHeight": 720,
-            "imageCompressionQuality": 78,
+            "imageCompressionQuality": 82,
         }),
     )
     .await?;
