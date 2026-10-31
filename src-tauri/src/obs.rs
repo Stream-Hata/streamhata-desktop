@@ -183,6 +183,45 @@ async fn status_with(socket: &mut Socket, url: &str) -> Result<Value, String> {
     }))
 }
 
+pub fn local_credentials() -> (String, String) {
+    let mut candidates = Vec::new();
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(format!(
+            "{home}/.config/obs-studio/plugin_config/obs-websocket/config.json"
+        ));
+        candidates.push(format!(
+            "{home}/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json"
+        ));
+    }
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        candidates.push(format!(
+            "{appdata}\\obs-studio\\plugin_config\\obs-websocket\\config.json"
+        ));
+    }
+
+    for path in candidates {
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(value) = serde_json::from_str::<Value>(&text) else {
+            continue;
+        };
+        let port = value
+            .get("server_port")
+            .and_then(Value::as_u64)
+            .unwrap_or(4455);
+        let password = value
+            .get("server_password")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+
+        return (format!("ws://127.0.0.1:{port}"), password);
+    }
+
+    ("ws://127.0.0.1:4455".to_string(), String::new())
+}
+
 pub async fn connect(url: String, password: String) -> Result<Value, String> {
     let mut client = open_client(&url, &password).await?;
     let status = status_with(&mut client.socket, &client.url).await?;

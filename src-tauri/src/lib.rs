@@ -2393,6 +2393,12 @@ async fn save_text_file(name: String, text: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+async fn obs_auto_connect() -> Result<serde_json::Value, String> {
+    let (url, password) = obs::local_credentials();
+    obs::connect(url, password).await
+}
+
+#[tauri::command]
 async fn obs_connect(url: String, password: String) -> Result<serde_json::Value, String> {
     obs::connect(url, password).await
 }
@@ -3371,6 +3377,7 @@ pub fn run() {
             check_update_manual,
             install_update,
             obs_connect,
+            obs_auto_connect,
             obs_status,
             obs_create_scene,
             obs_reorder_scene,
