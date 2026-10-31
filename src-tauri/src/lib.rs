@@ -865,7 +865,13 @@ fn network_extra(
 }
 
 #[tauri::command]
-fn system_metrics() -> SystemMetrics {
+async fn system_metrics() -> Result<SystemMetrics, String> {
+    tauri::async_runtime::spawn_blocking(collect_system_metrics)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+fn collect_system_metrics() -> SystemMetrics {
     let mut system = System::new_all();
     std::thread::sleep(std::time::Duration::from_millis(200));
     system.refresh_cpu_usage();
@@ -1131,7 +1137,13 @@ fn dmi_info() -> (String, String, String, String, String, String, String) {
 }
 
 #[tauri::command]
-fn system_details() -> SystemDetails {
+async fn system_details() -> Result<SystemDetails, String> {
+    tauri::async_runtime::spawn_blocking(collect_system_details)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+fn collect_system_details() -> SystemDetails {
     let dmi = dmi_info();
     SystemDetails {
         memory: memory_modules(),
@@ -1536,7 +1548,7 @@ fn start_system_overlay_server() {
                         "application/json; charset=utf-8",
                     )
                 } else {
-                    let mut body = serde_json::to_string(&system_metrics())
+                    let mut body = serde_json::to_string(&collect_system_metrics())
                         .unwrap_or_else(|_| "{}".to_string());
                     body.insert_str(1, "\"enabled\":true,");
 
