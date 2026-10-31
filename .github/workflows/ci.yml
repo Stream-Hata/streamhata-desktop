@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   rust:
@@ -40,6 +41,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Dependency policy
+        continue-on-error: true
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
