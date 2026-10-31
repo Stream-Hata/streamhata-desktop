@@ -3,6 +3,9 @@ import json
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 if len(sys.argv) != 2:
     sys.exit('usage: release-notes.py <tag>')
 
