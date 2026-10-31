@@ -10,7 +10,7 @@ if len(sys.argv) != 2:
     sys.exit('usage: release-notes.py <tag>')
 
 tag = sys.argv[1].removeprefix('v')
-data = json.loads(Path('web/changelog.json').read_text())
+data = json.loads(Path('web/changelog.json').read_text(encoding='utf-8'))
 entry = next((item for item in data if item.get('version') == tag), None)
 
 if not entry:
