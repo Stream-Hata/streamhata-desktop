@@ -441,6 +441,12 @@
           "markdownDescription": "Enables the start_desktop_login command without any pre-configured scope."
         },
         {
+          "description": "Enables the system_alert command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-system-alert",
+          "markdownDescription": "Enables the system_alert command without any pre-configured scope."
+        },
+        {
           "description": "Enables the system_details command without any pre-configured scope.",
           "type": "string",
           "const": "allow-system-details",
@@ -733,6 +739,12 @@
           "type": "string",
           "const": "deny-start-desktop-login",
           "markdownDescription": "Denies the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the system_alert command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-system-alert",
+          "markdownDescription": "Denies the system_alert command without any pre-configured scope."
         },
         {
           "description": "Denies the system_details command without any pre-configured scope.",

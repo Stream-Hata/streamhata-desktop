@@ -43,6 +43,7 @@
     "allow-check-update-manual",
     "allow-set-cat-tray",
     "allow-notify-cat",
+    "allow-system-alert",
     "allow-update-ui-state",
     "allow-system-details",
     "allow-kill-process",

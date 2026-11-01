@@ -22,6 +22,7 @@ fn main() {
             "app_version",
             "set_cat_tray",
             "notify_cat",
+            "system_alert",
             "hide_to_tray",
             "check_update",
             "check_update_manual",

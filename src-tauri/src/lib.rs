@@ -2361,6 +2361,16 @@ fn set_cat_tray(app: AppHandle, active: bool) {
 }
 
 #[tauri::command]
+fn system_alert(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn notify_cat(app: AppHandle, stage: u8) {
     let hint = match stage {
         1 => "Кот заглянул: стрим всё ещё не запущен.",
@@ -3392,6 +3402,7 @@ pub fn run() {
             update_ui_state,
             set_cat_tray,
             notify_cat,
+            system_alert,
             hide_to_tray,
             check_update,
             check_update_manual,
