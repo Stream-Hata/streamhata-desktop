@@ -3296,12 +3296,7 @@ fn start_notification_poller(app: AppHandle) {
                     if let Some(version) = response.get("version").and_then(|value| value.as_str())
                     {
                         if !seen_version.is_empty() && seen_version != version {
-                            let _ = app
-                                .notification()
-                                .builder()
-                                .title("Доступно обновление StreamHata")
-                                .body(format!("Версия {version} уже доступна"))
-                                .show();
+                            show_update_notification(&app, version);
                         }
 
                         seen_version = version.to_owned();

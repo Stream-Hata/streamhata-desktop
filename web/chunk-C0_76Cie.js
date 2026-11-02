@@ -1,0 +1,1 @@
+import{Ni as xi,Xr as re,d as CS}from"./chunk-Bji5nmGW.js";import{I as St}from"./chunk-DGW8w0Yu.js";function c(r,e,m=[]){let o=new St(r(),{nonNullable:!0,validators:m}),f=e.get(re);return o.valueChanges.pipe(CS(f)).subscribe(t=>r.set(t)),xi(()=>{let t=r();o.value!==t&&o.setValue(t,{emitEvent:!1})},{injector:e}),o}export{c as t};

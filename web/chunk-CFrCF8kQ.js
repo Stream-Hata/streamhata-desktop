@@ -1,0 +1,1 @@
+import{Di as wn}from"./chunk-Bji5nmGW.js";var u=(()=>{class e{transform(i,t,...r){return t(i,...r)}static{this.ɵfac=function(t){return new(t||e)}}static{this.ɵpipe=wn({name:`tuiMapper`,type:e,pure:!0})}}return e})();export{u as t};
