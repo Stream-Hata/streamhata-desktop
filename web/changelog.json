@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-11-02",
+    "sections": [
+      {
+        "title": "Добавлено",
+        "items": [
+          {
+            "text": "`Ctrl+Shift+Enter`: автоопределение языка, оборачивание в код-блок, форматирование и отправка."
+          },
+          {
+            "text": "Расширена поддержка языков: Prettier (JS/TS/JSX/TSX/JSON/JSON5/JSONC/HTML/Vue/Angular/CSS/SCSS/LESS/Markdown/MDX/YAML/GraphQL) и SQL-диалекты."
+          },
+          {
+            "text": "Базовое форматирование для C/C++/C#/Java/Kotlin/Swift/Dart/Scala/PHP/Rust/Go и др."
+          },
+          {
+            "text": "Проверка синтаксиса с указанием строки и колонки; ошибочный код не отправляется."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-11-02",
     "sections": [
