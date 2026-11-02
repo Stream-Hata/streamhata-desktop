@@ -2061,6 +2061,34 @@ fn session_status() -> Result<SessionStatus, String> {
     }
 }
 
+fn messaging_entry() -> Result<Entry, String> {
+    Entry::new(&format!("{SERVICE}.messaging"), USER).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn load_messaging_identity() -> Result<Option<String>, String> {
+    match messaging_entry()?.get_password() {
+        Ok(value) => Ok(Some(value)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
+fn save_messaging_identity(value: String) -> Result<(), String> {
+    messaging_entry()?
+        .set_password(&value)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn clear_messaging_identity() -> Result<(), String> {
+    match messaging_entry()?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 #[tauri::command]
 fn save_session(token: String) -> Result<(), String> {
     entry()?
@@ -3520,6 +3548,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             session_status,
             save_session,
+            load_messaging_identity,
+            save_messaging_identity,
+            clear_messaging_identity,
             list_accounts,
             save_current_account,
             switch_account,

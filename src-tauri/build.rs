@@ -3,6 +3,9 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "session_status",
             "save_session",
+            "load_messaging_identity",
+            "save_messaging_identity",
+            "clear_messaging_identity",
             "list_accounts",
             "save_current_account",
             "switch_account",
