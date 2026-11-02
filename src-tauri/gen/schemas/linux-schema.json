@@ -369,6 +369,12 @@
           "markdownDescription": "Enables the obs_set_input_settings command without any pre-configured scope."
         },
         {
+          "description": "Enables the obs_stats command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-obs-stats",
+          "markdownDescription": "Enables the obs_stats command without any pre-configured scope."
+        },
+        {
           "description": "Enables the obs_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-obs-status",
@@ -667,6 +673,12 @@
           "type": "string",
           "const": "deny-obs-set-input-settings",
           "markdownDescription": "Denies the obs_set_input_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the obs_stats command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-obs-stats",
+          "markdownDescription": "Denies the obs_stats command without any pre-configured scope."
         },
         {
           "description": "Denies the obs_status command without any pre-configured scope.",

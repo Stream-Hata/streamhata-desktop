@@ -29,6 +29,7 @@ fn main() {
             "update_ui_state",
             "install_update",
             "obs_auto_connect",
+            "obs_stats",
             "obs_scene_items",
             "obs_scene_screenshot",
             "obs_scene_item_transform",
