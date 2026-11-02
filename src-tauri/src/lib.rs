@@ -30,6 +30,7 @@ static UPDATE_UI_STATE: std::sync::Mutex<UpdateUiState> = std::sync::Mutex::new(
     error: None,
 });
 static UPDATE_INSTALLING: AtomicBool = AtomicBool::new(false);
+static AUTO_UPDATE_CHECK: AtomicBool = AtomicBool::new(true);
 const SYSTEM_OVERLAY_URL: &str = "http://127.0.0.1:17890/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TERMS_VERSION: &str = "1.2";
@@ -2302,7 +2303,7 @@ fn resume_or_login(app: AppHandle) {
             thread::sleep(std::time::Duration::from_millis(500));
         }
 
-        let _ = start_desktop_login(app);
+        let _ = start_desktop_login(app, None);
     });
 }
 
@@ -2317,13 +2318,18 @@ fn navigate_login(app: &AppHandle) {
 }
 
 #[tauri::command]
-fn start_desktop_login(app: AppHandle) -> Result<(), String> {
+fn start_desktop_login(app: AppHandle, force: Option<bool>) -> Result<(), String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
     let port = listener
         .local_addr()
         .map_err(|error| error.to_string())?
         .port();
-    let auth_url = format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}");
+    let force = force.unwrap_or(false);
+    let auth_url = if force {
+        format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}&force=1")
+    } else {
+        format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}")
+    };
 
     open::that(&auth_url).map_err(|error| error.to_string())?;
     navigate_login(&app);
@@ -2396,6 +2402,132 @@ fn start_desktop_login(app: AppHandle) -> Result<(), String> {
     });
 
     Ok(())
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct UpdatePreferences {
+    auto_check: bool,
+}
+
+fn update_preferences_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|directory| directory.join("update-preferences.json"))
+}
+
+fn load_update_preferences(app: &AppHandle) {
+    let Some(path) = update_preferences_path(app) else {
+        return;
+    };
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return;
+    };
+    let Ok(preferences) = serde_json::from_str::<UpdatePreferences>(&raw) else {
+        return;
+    };
+    AUTO_UPDATE_CHECK.store(preferences.auto_check, Ordering::SeqCst);
+}
+
+fn rollback_directory(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|directory| directory.join("rollback"))
+}
+
+fn update_source_path() -> Option<std::path::PathBuf> {
+    std::env::var_os("APPIMAGE")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_exe().ok())
+}
+
+fn backup_current_binary(app: &AppHandle) -> Result<(), String> {
+    let source = update_source_path().ok_or_else(|| "Не найден исполняемый файл".to_string())?;
+    let directory = rollback_directory(app).ok_or_else(|| "Не найден каталог данных".to_string())?;
+    std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let target = directory.join("previous");
+    std::fs::copy(&source, &target).map_err(|error| error.to_string())?;
+    let metadata = serde_json::json!({ "version": APP_VERSION });
+    std::fs::write(directory.join("previous.json"), metadata.to_string())
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct RollbackInfo {
+    version: String,
+}
+
+#[tauri::command]
+fn rollback_info(app: AppHandle) -> Option<RollbackInfo> {
+    let directory = rollback_directory(&app)?;
+    let raw = std::fs::read_to_string(directory.join("previous.json")).ok()?;
+    let version = serde_json::from_str::<serde_json::Value>(&raw)
+        .ok()?
+        .get("version")?
+        .as_str()?
+        .to_string();
+    if directory.join("previous").exists() {
+        Some(RollbackInfo { version })
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+fn auto_update_enabled() -> bool {
+    AUTO_UPDATE_CHECK.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+fn set_auto_update(app: AppHandle, enabled: bool) -> Result<(), String> {
+    AUTO_UPDATE_CHECK.store(enabled, Ordering::SeqCst);
+    let path = update_preferences_path(&app).ok_or_else(|| "Не найден каталог настроек".to_string())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let raw = serde_json::to_string(&UpdatePreferences { auto_check: enabled })
+        .map_err(|error| error.to_string())?;
+    std::fs::write(path, raw).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn rollback_update(app: AppHandle) -> Result<(), String> {
+    let directory = rollback_directory(&app).ok_or_else(|| "Не найден каталог данных".to_string())?;
+    let backup = directory.join("previous");
+    let target = update_source_path().ok_or_else(|| "Не найден исполняемый файл".to_string())?;
+    if !backup.exists() {
+        return Err("Резервная копия не найдена".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let script = directory.join("rollback.cmd");
+        let content = format!(
+            "@echo off\r\ntimeout /t 2 /nobreak >nul\r\ncopy /Y \"{}\" \"{}\"\r\nstart \"\" \"{}\"\r\ndel \"%~f0\"\r\n",
+            backup.display(),
+            target.display(),
+            target.display()
+        );
+        std::fs::write(&script, content).map_err(|error| error.to_string())?;
+        Command::new("cmd")
+            .args(["/C", script.to_string_lossy().as_ref()])
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        app.exit(0);
+        return Ok(());
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = std::fs::remove_file(&target);
+        std::fs::rename(&backup, &target).map_err(|error| error.to_string())?;
+        let _ = std::fs::remove_file(directory.join("previous.json"));
+        Command::new(&target)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        app.exit(0);
+        Ok(())
+    }
 }
 
 async fn fetch_available_update(app: &AppHandle) -> Result<Option<Update>, String> {
@@ -2805,6 +2937,9 @@ async fn install_update_now(app: AppHandle) -> Result<(), String> {
             .await?
             .ok_or_else(|| "Обновлений нет".to_string())?;
 
+        if let Err(error) = backup_current_binary(&app) {
+            tracing::warn!(error = %error, "failed to back up current binary");
+        }
         set_update_ui(&app, "downloading", None, 0, 0, None);
         let mut last_error = String::new();
 
@@ -2912,9 +3047,11 @@ fn start_update_poller(app: AppHandle) {
         loop {
             let handle = app.clone();
 
-            tauri::async_runtime::block_on(async move {
-                let _ = check_update(handle).await;
-            });
+            if AUTO_UPDATE_CHECK.load(Ordering::SeqCst) {
+                tauri::async_runtime::block_on(async move {
+                    let _ = check_update(handle).await;
+                });
+            }
 
             thread::sleep(std::time::Duration::from_secs(30 * 60));
         }
@@ -3373,6 +3510,7 @@ pub fn run() {
                 save_changelog_state(app.handle(), never);
             }
 
+            load_update_preferences(app.handle());
             register_update_actions(app.handle());
             start_update_poller(app.handle().clone());
             let app_for_nav = app.handle().clone();
@@ -3581,6 +3719,10 @@ pub fn run() {
             check_update,
             check_update_manual,
             install_update,
+            auto_update_enabled,
+            set_auto_update,
+            rollback_info,
+            rollback_update,
             obs_connect,
             obs_auto_connect,
             obs_status,
