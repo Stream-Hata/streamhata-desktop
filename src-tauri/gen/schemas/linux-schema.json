@@ -183,6 +183,12 @@
           "markdownDescription": "Enables the app_version command without any pre-configured scope."
         },
         {
+          "description": "Enables the auto_update_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-auto-update-enabled",
+          "markdownDescription": "Enables the auto_update_enabled command without any pre-configured scope."
+        },
+        {
           "description": "Enables the check_update command without any pre-configured scope.",
           "type": "string",
           "const": "allow-check-update",
@@ -429,6 +435,18 @@
           "markdownDescription": "Enables the resume_session command without any pre-configured scope."
         },
         {
+          "description": "Enables the rollback_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rollback-info",
+          "markdownDescription": "Enables the rollback_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rollback_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rollback-update",
+          "markdownDescription": "Enables the rollback_update command without any pre-configured scope."
+        },
+        {
           "description": "Enables the save_current_account command without any pre-configured scope.",
           "type": "string",
           "const": "allow-save-current-account",
@@ -457,6 +475,12 @@
           "type": "string",
           "const": "allow-session-status",
           "markdownDescription": "Enables the session_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_auto_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-auto-update",
+          "markdownDescription": "Enables the set_auto_update command without any pre-configured scope."
         },
         {
           "description": "Enables the set_cat_tray command without any pre-configured scope.",
@@ -529,6 +553,12 @@
           "type": "string",
           "const": "deny-app-version",
           "markdownDescription": "Denies the app_version command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the auto_update_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-auto-update-enabled",
+          "markdownDescription": "Denies the auto_update_enabled command without any pre-configured scope."
         },
         {
           "description": "Denies the check_update command without any pre-configured scope.",
@@ -777,6 +807,18 @@
           "markdownDescription": "Denies the resume_session command without any pre-configured scope."
         },
         {
+          "description": "Denies the rollback_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rollback-info",
+          "markdownDescription": "Denies the rollback_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rollback_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rollback-update",
+          "markdownDescription": "Denies the rollback_update command without any pre-configured scope."
+        },
+        {
           "description": "Denies the save_current_account command without any pre-configured scope.",
           "type": "string",
           "const": "deny-save-current-account",
@@ -805,6 +847,12 @@
           "type": "string",
           "const": "deny-session-status",
           "markdownDescription": "Denies the session_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_auto_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-auto-update",
+          "markdownDescription": "Denies the set_auto_update command without any pre-configured scope."
         },
         {
           "description": "Denies the set_cat_tray command without any pre-configured scope.",
