@@ -28,6 +28,7 @@
     "allow-obs-scene",
     "allow-obs-disconnect",
     "allow-obs-status",
+    "allow-obs-stats",
     "allow-obs-connect",
     "allow-start-desktop-login",
     "allow-show-splash",

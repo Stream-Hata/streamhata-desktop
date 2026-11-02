@@ -252,6 +252,20 @@ async fn run_status(guard: &mut Option<Client>) -> Result<Value, String> {
     }
 }
 
+pub async fn stats() -> Result<Value, String> {
+    let mut guard = CLIENT.lock().await;
+    let result = match guard.as_mut() {
+        Some(client) => request(&mut client.socket, "GetStats", json!({})).await,
+        None => Err("OBS WebSocket не подключён".to_string()),
+    };
+    if result.is_ok() {
+        return result;
+    }
+    reconnect(&mut guard).await?;
+    let client = guard.as_mut().expect("client reconnected");
+    request(&mut client.socket, "GetStats", json!({})).await
+}
+
 pub async fn status() -> Result<Value, String> {
     let mut guard = CLIENT.lock().await;
     run_status(&mut guard).await

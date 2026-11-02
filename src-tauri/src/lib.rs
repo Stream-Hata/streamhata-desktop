@@ -2414,6 +2414,11 @@ async fn obs_connect(url: String, password: String) -> Result<serde_json::Value,
 }
 
 #[tauri::command]
+async fn obs_stats() -> Result<serde_json::Value, String> {
+    obs::stats().await
+}
+
+#[tauri::command]
 async fn obs_status() -> Result<serde_json::Value, String> {
     obs::status().await
 }
@@ -3410,6 +3415,7 @@ pub fn run() {
             obs_connect,
             obs_auto_connect,
             obs_status,
+            obs_stats,
             obs_create_scene,
             obs_reorder_scene,
             obs_disconnect,
