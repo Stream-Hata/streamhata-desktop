@@ -2086,6 +2086,153 @@ struct ResumeResponse {
     bridge_code: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+struct AccountInfo {
+    login: String,
+    display_name: String,
+    active: bool,
+}
+
+fn accounts_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let directory = app
+        .path()
+        .app_config_dir()
+        .map_err(|error| error.to_string())?;
+    let _ = std::fs::create_dir_all(&directory);
+
+    Ok(directory.join("accounts.json"))
+}
+
+fn read_accounts(app: &AppHandle) -> Vec<AccountInfo> {
+    let Ok(path) = accounts_path(app) else {
+        return Vec::new();
+    };
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Vec<AccountInfo>>(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn write_accounts(app: &AppHandle, accounts: &[AccountInfo]) -> Result<(), String> {
+    let path = accounts_path(app)?;
+    std::fs::write(
+        path,
+        serde_json::to_string_pretty(accounts).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn account_entry(login: &str) -> Result<Entry, String> {
+    Entry::new(&format!("{SERVICE}.account.{login}"), USER).map_err(|error| error.to_string())
+}
+
+fn resume_with_token(token: &str) -> Result<ResumeResponse, String> {
+    let response = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(12))
+        .build()
+        .map_err(|error| error.to_string())?
+        .post("https://streamhata.rdpctd.dev/rgg-sync/desktop/resume")
+        .bearer_auth(token)
+        .send()
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        return Err("session rejected".to_string());
+    }
+
+    response
+        .json::<ResumeResponse>()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn list_accounts(app: AppHandle) -> Vec<AccountInfo> {
+    read_accounts(&app)
+}
+
+#[tauri::command]
+fn save_current_account(app: AppHandle, login: String, display_name: String) -> Result<(), String> {
+    let login = login.trim().to_lowercase();
+
+    if login.is_empty() {
+        return Err("login is empty".to_string());
+    }
+    let token = entry()?.get_password().map_err(|error| error.to_string())?;
+    if token.is_empty() {
+        return Err("session token is empty".to_string());
+    }
+    account_entry(&login)?
+        .set_password(&token)
+        .map_err(|error| error.to_string())?;
+
+    let mut accounts = read_accounts(&app);
+    for account in &mut accounts {
+        account.active = account.login == login;
+    }
+    if !accounts.iter().any(|account| account.login == login) {
+        accounts.push(AccountInfo {
+            login,
+            display_name,
+            active: true,
+        });
+    } else if let Some(account) = accounts.iter_mut().find(|account| account.login == login) {
+        account.display_name = display_name;
+    }
+
+    write_accounts(&app, &accounts)
+}
+
+#[tauri::command]
+async fn switch_account(app: AppHandle, login: String) -> Result<bool, String> {
+    let login = login.trim().to_lowercase();
+    let token = account_entry(&login)?
+        .get_password()
+        .map_err(|error| error.to_string())?;
+    if token.is_empty() {
+        return Err("account token is empty".to_string());
+    }
+
+    let resume = tauri::async_runtime::spawn_blocking(move || resume_with_token(&token))
+        .await
+        .map_err(|error| error.to_string())??;
+    let session_token = resume.session_token.unwrap_or_default();
+    if !session_token.is_empty() {
+        let _ = entry()?.set_password(&session_token);
+    }
+
+    let mut accounts = read_accounts(&app);
+    for account in &mut accounts {
+        account.active = account.login == login;
+    }
+    write_accounts(&app, &accounts)?;
+
+    let bridge = format!(
+        "https://streamhata.rdpctd.dev/rgg-sync/desktop/login?code={}",
+        resume.bridge_code
+    );
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .navigate(bridge.parse().expect("valid bridge url"))
+            .map_err(|error| error.to_string())?;
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+
+    Ok(true)
+}
+
+#[tauri::command]
+fn remove_account(app: AppHandle, login: String) -> Result<(), String> {
+    let login = login.trim().to_lowercase();
+    let _ = account_entry(&login)?.delete_credential();
+    let accounts = read_accounts(&app)
+        .into_iter()
+        .filter(|account| account.login != login)
+        .collect::<Vec<_>>();
+
+    write_accounts(&app, &accounts)
+}
+
 #[tauri::command]
 fn resume_session(app: AppHandle) -> Result<bool, String> {
     let Ok(token) = entry()?.get_password() else {
@@ -2096,23 +2243,10 @@ fn resume_session(app: AppHandle) -> Result<bool, String> {
         return Ok(false);
     }
 
-    let response = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(12))
-        .build()
-        .map_err(|error| error.to_string())?
-        .post("https://streamhata.rdpctd.dev/rgg-sync/desktop/resume")
-        .bearer_auth(&token)
-        .send()
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
+    let Ok(resume) = resume_with_token(&token) else {
         let _ = entry()?.delete_credential();
         return Ok(false);
-    }
-
-    let resume = response
-        .json::<ResumeResponse>()
-        .map_err(|error| error.to_string())?;
+    };
     if let Some(session_token) = &resume.session_token {
         let _ = entry()?.set_password(session_token);
     }
@@ -3386,6 +3520,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             session_status,
             save_session,
+            list_accounts,
+            save_current_account,
+            switch_account,
+            remove_account,
             clear_session,
             system_metrics,
             system_details,

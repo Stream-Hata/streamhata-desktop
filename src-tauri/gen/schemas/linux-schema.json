@@ -237,6 +237,12 @@
           "markdownDescription": "Enables the kill_process command without any pre-configured scope."
         },
         {
+          "description": "Enables the list_accounts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-accounts",
+          "markdownDescription": "Enables the list_accounts command without any pre-configured scope."
+        },
+        {
           "description": "Enables the notify_cat command without any pre-configured scope.",
           "type": "string",
           "const": "allow-notify-cat",
@@ -393,6 +399,12 @@
           "markdownDescription": "Enables the open_system_window command without any pre-configured scope."
         },
         {
+          "description": "Enables the remove_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-account",
+          "markdownDescription": "Enables the remove_account command without any pre-configured scope."
+        },
+        {
           "description": "Enables the restart_app command without any pre-configured scope.",
           "type": "string",
           "const": "allow-restart-app",
@@ -403,6 +415,12 @@
           "type": "string",
           "const": "allow-resume-session",
           "markdownDescription": "Enables the resume_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_current_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-current-account",
+          "markdownDescription": "Enables the save_current_account command without any pre-configured scope."
         },
         {
           "description": "Enables the save_session command without any pre-configured scope.",
@@ -445,6 +463,12 @@
           "type": "string",
           "const": "allow-start-desktop-login",
           "markdownDescription": "Enables the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the switch_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-switch-account",
+          "markdownDescription": "Enables the switch_account command without any pre-configured scope."
         },
         {
           "description": "Enables the system_alert command without any pre-configured scope.",
@@ -541,6 +565,12 @@
           "type": "string",
           "const": "deny-kill-process",
           "markdownDescription": "Denies the kill_process command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_accounts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-accounts",
+          "markdownDescription": "Denies the list_accounts command without any pre-configured scope."
         },
         {
           "description": "Denies the notify_cat command without any pre-configured scope.",
@@ -699,6 +729,12 @@
           "markdownDescription": "Denies the open_system_window command without any pre-configured scope."
         },
         {
+          "description": "Denies the remove_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-account",
+          "markdownDescription": "Denies the remove_account command without any pre-configured scope."
+        },
+        {
           "description": "Denies the restart_app command without any pre-configured scope.",
           "type": "string",
           "const": "deny-restart-app",
@@ -709,6 +745,12 @@
           "type": "string",
           "const": "deny-resume-session",
           "markdownDescription": "Denies the resume_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_current_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-current-account",
+          "markdownDescription": "Denies the save_current_account command without any pre-configured scope."
         },
         {
           "description": "Denies the save_session command without any pre-configured scope.",
@@ -751,6 +793,12 @@
           "type": "string",
           "const": "deny-start-desktop-login",
           "markdownDescription": "Denies the start_desktop_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the switch_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-switch-account",
+          "markdownDescription": "Denies the switch_account command without any pre-configured scope."
         },
         {
           "description": "Denies the system_alert command without any pre-configured scope.",
