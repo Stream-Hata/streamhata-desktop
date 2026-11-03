@@ -2444,7 +2444,8 @@ fn update_source_path() -> Option<std::path::PathBuf> {
 
 fn backup_current_binary(app: &AppHandle) -> Result<(), String> {
     let source = update_source_path().ok_or_else(|| "Не найден исполняемый файл".to_string())?;
-    let directory = rollback_directory(app).ok_or_else(|| "Не найден каталог данных".to_string())?;
+    let directory =
+        rollback_directory(app).ok_or_else(|| "Не найден каталог данных".to_string())?;
     std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let target = directory.join("previous");
     std::fs::copy(&source, &target).map_err(|error| error.to_string())?;
@@ -2483,18 +2484,22 @@ fn auto_update_enabled() -> bool {
 #[tauri::command]
 fn set_auto_update(app: AppHandle, enabled: bool) -> Result<(), String> {
     AUTO_UPDATE_CHECK.store(enabled, Ordering::SeqCst);
-    let path = update_preferences_path(&app).ok_or_else(|| "Не найден каталог настроек".to_string())?;
+    let path =
+        update_preferences_path(&app).ok_or_else(|| "Не найден каталог настроек".to_string())?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    let raw = serde_json::to_string(&UpdatePreferences { auto_check: enabled })
-        .map_err(|error| error.to_string())?;
+    let raw = serde_json::to_string(&UpdatePreferences {
+        auto_check: enabled,
+    })
+    .map_err(|error| error.to_string())?;
     std::fs::write(path, raw).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn rollback_update(app: AppHandle) -> Result<(), String> {
-    let directory = rollback_directory(&app).ok_or_else(|| "Не найден каталог данных".to_string())?;
+    let directory =
+        rollback_directory(&app).ok_or_else(|| "Не найден каталог данных".to_string())?;
     let backup = directory.join("previous");
     let target = update_source_path().ok_or_else(|| "Не найден исполняемый файл".to_string())?;
     if !backup.exists() {
