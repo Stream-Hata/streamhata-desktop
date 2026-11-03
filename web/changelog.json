@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.0.0-alpha.4",
+    "date": "2026-11-03",
+    "sections": [
+      {
+        "title": "Добавлено",
+        "items": [
+          {
+            "text": "Горячие клавиши приложения: Ctrl+Alt+C клип, Ctrl+Alt+U микрофон, Ctrl+Alt+S следующая сцена, Ctrl+Alt+M маркер."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.0.0-alpha.3",
     "date": "2026-11-03",
     "sections": [
