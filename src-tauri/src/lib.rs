@@ -3047,7 +3047,7 @@ fn native_update_confirm(_version: &str) -> bool {
 
 fn start_update_poller(app: AppHandle) {
     thread::spawn(move || {
-        thread::sleep(std::time::Duration::from_secs(15));
+        thread::sleep(std::time::Duration::from_secs(5));
 
         loop {
             let handle = app.clone();
@@ -3063,7 +3063,7 @@ fn start_update_poller(app: AppHandle) {
                 });
             }
 
-            thread::sleep(std::time::Duration::from_secs(30 * 60));
+            thread::sleep(std::time::Duration::from_secs(5 * 60));
         }
     });
 }
