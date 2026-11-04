@@ -30,7 +30,7 @@ static UPDATE_UI_STATE: std::sync::Mutex<UpdateUiState> = std::sync::Mutex::new(
     error: None,
 });
 static UPDATE_INSTALLING: AtomicBool = AtomicBool::new(false);
-static AUTO_UPDATE_CHECK: AtomicBool = AtomicBool::new(false);
+static AUTO_UPDATE_CHECK: AtomicBool = AtomicBool::new(true);
 const SYSTEM_OVERLAY_URL: &str = "http://127.0.0.1:17890/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TERMS_VERSION: &str = "1.2";
