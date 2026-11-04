@@ -30,7 +30,7 @@ static UPDATE_UI_STATE: std::sync::Mutex<UpdateUiState> = std::sync::Mutex::new(
     error: None,
 });
 static UPDATE_INSTALLING: AtomicBool = AtomicBool::new(false);
-static AUTO_UPDATE_CHECK: AtomicBool = AtomicBool::new(true);
+static AUTO_UPDATE_CHECK: AtomicBool = AtomicBool::new(false);
 const SYSTEM_OVERLAY_URL: &str = "http://127.0.0.1:17890/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TERMS_VERSION: &str = "1.2";
@@ -3052,9 +3052,14 @@ fn start_update_poller(app: AppHandle) {
         loop {
             let handle = app.clone();
 
-            if AUTO_UPDATE_CHECK.load(Ordering::SeqCst) {
-                tauri::async_runtime::block_on(async move {
-                    let _ = check_update(handle).await;
+            let auto_install = AUTO_UPDATE_CHECK.load(Ordering::SeqCst);
+            let result = tauri::async_runtime::block_on(async move { check_update(handle).await });
+            if auto_install && matches!(result, Ok(Some(_))) {
+                let install_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if install_update_now(install_app.clone()).await.is_ok() {
+                        install_app.restart();
+                    }
                 });
             }
 
