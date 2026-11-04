@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.2.1-alpha",
+    "date": "2026-11-04",
+    "sections": [
+      {
+        "title": "Изменено",
+        "items": [
+          {
+            "text": "i18n страницы событий: RU/EN."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.2.0-alpha",
     "date": "2026-11-04",
     "sections": [
