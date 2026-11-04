@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.1.6-alpha",
+    "date": "2026-11-04",
+    "sections": [
+      {
+        "title": "Изменено",
+        "items": [
+          {
+            "text": "i18n страницы зрителей и ролей: RU/EN."
+          },
+          {
+            "text": "Очищены неиспользуемые bundled-плагины Grafana, диск DB 76%."
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.1.5-alpha",
     "date": "2026-11-04",
     "sections": [
