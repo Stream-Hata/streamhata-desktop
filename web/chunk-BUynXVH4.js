@@ -1,0 +1,1 @@
+import{Di as wS,Ni as xi,Yr as re}from"./chunk-58YQ6hJx.js";import{ut as wt}from"./chunk-BtEwhZT8.js";function c(r,e,m=[]){let o=new wt(r(),{nonNullable:!0,validators:m}),f=e.get(re);return o.valueChanges.pipe(wS(f)).subscribe(t=>r.set(t)),xi(()=>{let t=r();o.value!==t&&o.setValue(t,{emitEvent:!1})},{injector:e}),o}export{c as t};
