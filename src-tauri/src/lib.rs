@@ -37,6 +37,37 @@ const TERMS_VERSION: &str = "1.2";
 const TERMS_TEXT: &str = include_str!("../../web/terms.txt");
 const USER: &str = "session";
 
+#[cfg(target_os = "windows")]
+fn open_external_target(target: &str) -> Result<(), String> {
+    use windows::core::{w, PCWSTR};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let target: Vec<u16> = target.encode_utf16().chain(std::iter::once(0)).collect();
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            w!("open"),
+            PCWSTR(target.as_ptr()),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    if result.0 as usize <= 32 {
+        return Err(format!(
+            "Windows could not open target (ShellExecuteW: {})",
+            result.0 as usize
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_external_target(target: &str) -> Result<(), String> {
+    open::that(target).map_err(|error| error.to_string())
+}
+
 #[derive(Serialize)]
 struct DiskMetric {
     name: String,
@@ -2334,7 +2365,7 @@ fn start_desktop_login(app: AppHandle, force: Option<bool>) -> Result<(), String
         format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}")
     };
 
-    open::that(&auth_url).map_err(|error| error.to_string())?;
+    open_external_target(&auth_url)?;
     navigate_login(&app);
 
     thread::spawn(move || {
@@ -3539,7 +3570,7 @@ pub fn run() {
                 .user_agent("NamelessStreamHataDesktop/0.1")
                 .initialization_script(&init_script)
                 .on_new_window(|url, _features| {
-                    let _ = open::that(url.as_str());
+                    let _ = open_external_target(url.as_str());
                     NewWindowResponse::Deny
                 })
                 .on_navigation(move |url| {
@@ -3555,7 +3586,7 @@ pub fn run() {
                         }
 
                         if let Some((_, target)) = url.query_pairs().find(|(key, _)| key == "url") {
-                            let _ = open::that(target.as_ref());
+                            let _ = open_external_target(target.as_ref());
                         }
 
                         return false;
