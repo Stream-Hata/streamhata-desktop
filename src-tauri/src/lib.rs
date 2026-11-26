@@ -362,7 +362,10 @@ fn gpu_memory() -> (Option<u64>, Option<u64>) {
 
 #[cfg(target_os = "windows")]
 fn powershell_json(script: &str) -> Option<serde_json::Value> {
+    use std::os::windows::process::CommandExt;
+
     let output = Command::new("powershell")
+        .creation_flags(0x0800_0000)
         .args([
             "-NoProfile",
             "-NonInteractive",
