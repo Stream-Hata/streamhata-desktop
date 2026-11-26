@@ -1,0 +1,1 @@
+import{X as Lt}from"./chunk-BtQQV_bv.js";var u=(()=>{class e{transform(i,t,...r){return t(i,...r)}static{this.ɵfac=function(t){return new(t||e)}}static{this.ɵpipe=Lt({name:`tuiMapper`,type:e,pure:!0})}}return e})();export{u as t};

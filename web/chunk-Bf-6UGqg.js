@@ -1,0 +1,1 @@
+function n(t){let o=new URL(t,window.location.origin);if(o.protocol!==`https:`&&o.protocol!==`http:`)throw new Error(`OAuth URL must use HTTP or HTTPS`);if(`__TAURI_INTERNALS__`in window){window.location.assign(`streamhata://external?url=${encodeURIComponent(o.href)}`);return}window.location.assign(o.href)}export{n as t};
