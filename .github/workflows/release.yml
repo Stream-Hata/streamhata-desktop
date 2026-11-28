@@ -115,14 +115,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          find . -type f -path '*/bundle/*' \
+          find . -type f \
             \( -name '*.exe' -o -name '*.nsis.zip' -o -name '*.nsis.zip.sig' \) \
             -print
-          installer=$(find . -type f -path '*/bundle/*' -name '*-setup.exe' -print -quit)
-          updater=$(find . -type f -path '*/bundle/*' -name '*.nsis.zip' -print -quit)
+          installer=$(find . -type f -name '*-setup.exe' -print -quit)
+          updater=$(find . -type f -name '*.nsis.zip' -print -quit)
+          if [ -z "$installer" ]; then echo "::error::Windows setup installer is missing"; fi
+          if [ -z "$updater" ]; then echo "::error::NSIS updater archive is missing"; fi
+          if [ -n "$updater" ] && [ ! -f "$updater.sig" ]; then
+            echo "::error::NSIS updater signature is missing for $updater"
+          fi
           if [ -z "$installer" ] || [ -z "$updater" ] || [ ! -f "$updater.sig" ]; then
-            echo "::error::Missing Windows installer or signed NSIS updater artifact"
-            find target -type f -path '*/bundle/*' -print | head -n 100
+            find . -type f \
+              \( -name '*.exe' -o -name '*.zip' -o -name '*.sig' \) \
+              -print | head -n 100
             exit 1
           fi
           cp "$installer" release-assets/
