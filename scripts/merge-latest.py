@@ -31,7 +31,7 @@ def make_platform(platform: str, pattern: str) -> dict:
 
 platforms = dict([
     make_platform('linux-x86_64', '*.AppImage'),
-    make_platform('windows-x86_64', '*.nsis.zip'),
+    make_platform('windows-x86_64', '*-setup.exe'),
 ])
 manifest = {
     'version': version,

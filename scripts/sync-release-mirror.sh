@@ -28,7 +28,7 @@ platforms = manifest.get('platforms') or {}
 if not version or not platforms:
     raise SystemExit('manifest has no version or platforms')
 
-allowed = ('.AppImage', '.nsis.zip')
+allowed = ('.AppImage', '-setup.exe')
 for platform, entry in platforms.items():
     url = str(entry.get('url') or '').strip()
     parsed = urlparse(url)

@@ -116,24 +116,21 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets
           find . -type f \
-            \( -name '*.exe' -o -name '*.nsis.zip' -o -name '*.nsis.zip.sig' \) \
+            \( -name '*-setup.exe' -o -name '*-setup.exe.sig' \) \
             -print
           installer=$(find . -type f -name '*-setup.exe' -print -quit)
-          updater=$(find . -type f -name '*.nsis.zip' -print -quit)
-          if [ -z "$installer" ]; then echo "::error::Windows setup installer is missing"; fi
-          if [ -z "$updater" ]; then echo "::error::NSIS updater archive is missing"; fi
-          if [ -n "$updater" ] && [ ! -f "$updater.sig" ]; then
-            echo "::error::NSIS updater signature is missing for $updater"
+          if [ -z "$installer" ]; then echo "::error::Windows setup/updater executable is missing"; fi
+          if [ -n "$installer" ] && [ ! -f "$installer.sig" ]; then
+            echo "::error::Windows updater signature is missing for $installer"
           fi
-          if [ -z "$installer" ] || [ -z "$updater" ] || [ ! -f "$updater.sig" ]; then
+          if [ -z "$installer" ] || [ ! -f "$installer.sig" ]; then
             find . -type f \
-              \( -name '*.exe' -o -name '*.zip' -o -name '*.sig' \) \
+              \( -name '*.exe' -o -name '*.sig' \) \
               -print | head -n 100
             exit 1
           fi
           cp "$installer" release-assets/
-          cp "$updater" release-assets/
-          cp "$updater.sig" release-assets/
+          cp "$installer.sig" release-assets/
 
       - uses: actions/upload-artifact@v4
         with:
