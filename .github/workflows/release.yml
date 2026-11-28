@@ -115,11 +115,19 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          cp target/release/bundle/nsis/*.exe release-assets/
-          cp target/release/bundle/nsis/*.nsis.zip release-assets/
-          cp target/release/bundle/nsis/*.nsis.zip.sig release-assets/
-          test -n "$(find release-assets -type f -name '*.nsis.zip' -print -quit)"
-          test -n "$(find release-assets -type f -name '*.nsis.zip.sig' -print -quit)"
+          find . -type f -path '*/bundle/*' \
+            \( -name '*.exe' -o -name '*.nsis.zip' -o -name '*.nsis.zip.sig' \) \
+            -print
+          installer=$(find . -type f -path '*/bundle/*' -name '*-setup.exe' -print -quit)
+          updater=$(find . -type f -path '*/bundle/*' -name '*.nsis.zip' -print -quit)
+          if [ -z "$installer" ] || [ -z "$updater" ] || [ ! -f "$updater.sig" ]; then
+            echo "::error::Missing Windows installer or signed NSIS updater artifact"
+            find target -type f -path '*/bundle/*' -print | head -n 100
+            exit 1
+          fi
+          cp "$installer" release-assets/
+          cp "$updater" release-assets/
+          cp "$updater.sig" release-assets/
 
       - uses: actions/upload-artifact@v4
         with:
