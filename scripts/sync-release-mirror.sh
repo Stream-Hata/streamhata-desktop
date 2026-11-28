@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo="${STREAMHATA_REPO:-Stream-Hata/streamhata-desktop}"
-target="${STREAMHATA_MIRROR_DIR:-/var/www/streamhata/desktop}"
+target="${STREAMHATA_MIRROR_DIR:-/var/www/streamhata/browser/desktop}"
 release_api="https://api.github.com/repos/${repo}/releases/latest"
 
 mkdir -p "$target"
@@ -32,7 +32,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 
 manifest_path, target_path, work_path, release_path = map(Path, sys.argv[1:])
 target = target_path
