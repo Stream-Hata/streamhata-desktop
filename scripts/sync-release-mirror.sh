@@ -3,12 +3,27 @@ set -euo pipefail
 
 repo="${STREAMHATA_REPO:-Stream-Hata/streamhata-desktop}"
 target="${STREAMHATA_MIRROR_DIR:-/var/www/streamhata/desktop}"
-manifest_url="https://github.com/${repo}/releases/latest/download/latest.json"
+release_api="https://api.github.com/repos/${repo}/releases/latest"
 
 mkdir -p "$target"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+curl -fsSL --retry 4 --retry-delay 3 --max-time 60 "$release_api" -o "$work/release.json"
+manifest_url=$(python3 - "$work/release.json" "$repo" <<'PY'
+import json, sys
+release = json.load(open(sys.argv[1], encoding='utf-8'))
+tag = str(release.get('tag_name') or '').strip()
+assets = release.get('assets') or []
+manifest = next((asset.get('browser_download_url') for asset in assets if asset.get('name') == 'latest.json'), '')
+if not tag or not manifest:
+    raise SystemExit('latest GitHub release has no tag or latest.json asset')
+expected = f"https://github.com/{sys.argv[2]}/releases/download/{tag}/latest.json"
+if manifest != expected:
+    raise SystemExit(f'unexpected latest.json URL: {manifest}')
+print(manifest)
+PY
+)
 curl -fsSL --retry 4 --retry-delay 3 --max-time 60 "$manifest_url" -o "$work/latest.json"
 
 python3 - "$work/latest.json" "$target" "$work" <<'PY'
