@@ -26,7 +26,7 @@ PY
 )
 curl -fsSL --retry 4 --retry-delay 3 --max-time 60 "$manifest_url" -o "$work/latest.json"
 
-python3 - "$work/latest.json" "$target" "$work" <<'PY'
+python3 - "$work/latest.json" "$target" "$work" "$work/release.json" <<'PY'
 import json
 import os
 import subprocess
@@ -34,10 +34,12 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-manifest_path, target_path, work_path = map(Path, sys.argv[1:])
+manifest_path, target_path, work_path, release_path = map(Path, sys.argv[1:])
 target = target_path
 work = work_path
 manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+release = json.loads(release_path.read_text(encoding='utf-8'))
+assets = release.get('assets') or []
 version = str(manifest.get('version') or '').strip()
 platforms = manifest.get('platforms') or {}
 if not version or not platforms:
@@ -45,10 +47,18 @@ if not version or not platforms:
 
 allowed = ('.AppImage', '-setup.exe')
 for platform, entry in platforms.items():
-    url = str(entry.get('url') or '').strip()
-    parsed = urlparse(url)
-    filename = unquote(Path(parsed.path).name)
-    if parsed.scheme != 'https' or not filename.endswith(allowed):
+    if platform == 'linux-x86_64':
+        suffix = '.AppImage'
+    elif platform == 'windows-x86_64':
+        suffix = '-setup.exe'
+    else:
+        raise SystemExit(f'unsupported updater platform: {platform}')
+    asset = next((item for item in assets if str(item.get('name', '')).endswith(suffix)), None)
+    if not asset:
+        raise SystemExit(f'GitHub release has no {suffix} artifact for {platform}')
+    url = str(asset.get('browser_download_url') or '').strip()
+    filename = str(asset.get('name') or '').strip()
+    if not url.startswith('https://github.com/') or not filename.endswith(allowed):
         raise SystemExit(f'unexpected updater artifact for {platform}: {url}')
     local_url = f'https://ru.streamhata.rdpctd.dev/desktop/{filename}'
     if not (target / filename).is_file():

@@ -26,7 +26,8 @@ def make_platform(platform: str, pattern: str) -> dict:
     signature = signature_file.read_text(encoding='utf-8').strip()
     if not signature:
         sys.exit(f'empty updater signature: {signature_file}')
-    url = f'https://github.com/{repo}/releases/download/{quote(tag)}/{quote(artifact.name)}'
+    asset_name = artifact.name.replace(' ', '.')
+    url = f'https://github.com/{repo}/releases/download/{quote(tag)}/{quote(asset_name)}'
     return platform, {'signature': signature, 'url': url}
 
 platforms = dict([
