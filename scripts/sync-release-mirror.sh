@@ -11,37 +11,47 @@ trap 'rm -rf "$work"' EXIT
 
 curl -fsSL --retry 4 --retry-delay 3 --max-time 60 "$manifest_url" -o "$work/latest.json"
 
-read -r version artifact_url < <(python3 - "$work/latest.json" <<'PY'
-import json, sys
-data = json.load(open(sys.argv[1]))
-platforms = data.get("platforms") or {}
-if not platforms:
-    raise SystemExit("manifest has no platforms")
-platform = next(iter(platforms.values()))
-version = str(data.get("version") or "").strip()
-url = str(platform.get("url") or "").strip()
-if not version or not url:
-    raise SystemExit("manifest has no version or url")
-print(version, url)
+python3 - "$work/latest.json" "$target" "$work" <<'PY'
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+manifest_path, target_path, work_path = map(Path, sys.argv[1:])
+target = target_path
+work = work_path
+manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+version = str(manifest.get('version') or '').strip()
+platforms = manifest.get('platforms') or {}
+if not version or not platforms:
+    raise SystemExit('manifest has no version or platforms')
+
+allowed = ('.AppImage', '.nsis.zip')
+for platform, entry in platforms.items():
+    url = str(entry.get('url') or '').strip()
+    parsed = urlparse(url)
+    filename = unquote(Path(parsed.path).name)
+    if parsed.scheme != 'https' or not filename.endswith(allowed):
+        raise SystemExit(f'unexpected updater artifact for {platform}: {url}')
+    local_url = f'https://ru.streamhata.rdpctd.dev/desktop/{filename}'
+    if not (target / filename).is_file():
+        print(f'downloading {platform}: {filename}', flush=True)
+        temp = work / filename
+        subprocess.run([
+            'curl', '-fsSL', '--retry', '6', '--retry-delay', '5',
+            '--retry-all-errors', '--max-time', '1800', url, '-o', str(temp)
+        ], check=True)
+        if temp.stat().st_size < 1_000_000:
+            raise SystemExit(f'artifact too small: {filename}')
+        os.chmod(temp, 0o644)
+        temp.replace(target / filename)
+    entry['url'] = local_url
+
+output = work / 'latest.mirror.json'
+output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+os.chmod(output, 0o644)
+output.replace(target / 'latest.json')
+print(f'mirror ready: {version} ({len(platforms)} platforms)')
 PY
-)
-
-file=$(basename "${artifact_url%%\?*}")
-case "$file" in
-  *.AppImage|*.deb) ;;
-  *) echo "unexpected artifact name: $file" >&2; exit 1 ;;
-esac
-
-if [[ ! -s "$target/$file" ]]; then
-  echo "downloading $file"
-  curl -fsSL --retry 6 --retry-delay 5 --retry-all-errors --max-time 1800 "$artifact_url" -o "$work/$file"
-  size=$(stat -c %s "$work/$file")
-  if (( size < 1000000 )); then
-    echo "artifact too small: $size bytes" >&2
-    exit 1
-  fi
-  install -m 644 "$work/$file" "$target/$file"
-fi
-
-install -m 644 "$work/latest.json" "$target/latest.json"
-echo "mirror ready: $version ($file)"

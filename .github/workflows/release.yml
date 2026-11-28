@@ -1,0 +1,161 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-22.04
+            bundles: appimage,deb
+          - platform: windows
+            os: windows-latest
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libgtk-3-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.platform }}-cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: Set version from tag
+        shell: bash
+        run: python3 scripts/set-version.py "${GITHUB_REF_NAME#v}"
+
+      - name: Prepare updater signing key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          key="${TAURI_SIGNING_PRIVATE_KEY:-}"
+          if [ -z "$key" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not configured"
+            exit 1
+          fi
+          work="$RUNNER_TEMP/updater"
+          mkdir -p "$work"
+          raw="$work/updater.raw"
+          encoded="$work/updater.key"
+          if [[ "$key" == *"untrusted comment"* ]]; then
+            if [[ "$key" == *'\n'* && "$key" != *$'\n'* ]]; then
+              printf '%b\n' "$key" > "$raw"
+            else
+              printf '%s\n' "$key" > "$raw"
+            fi
+            base64 -w0 "$raw" > "$encoded"
+          else
+            printf '%s' "$key" | tr -d '\r\n' > "$encoded"
+          fi
+          base64 -d "$encoded" | head -n 1 | grep -q "untrusted comment" || {
+            echo "::error::Updater key is invalid: expected base64-encoded Tauri updater key"
+            exit 1
+          }
+          echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$encoded")" >> "$GITHUB_ENV"
+
+      - name: Build bundles and updater artifacts
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx -y @tauri-apps/cli@2 build --bundles "${{ matrix.bundles }}"
+
+      - name: Collect Linux bundles
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp "$(find target/release/bundle -type f -name '*.AppImage' -print -quit)" release-assets/
+          cp "$(find target/release/bundle -type f -name '*.AppImage.sig' -print -quit)" release-assets/
+          cp "$(find target/release/bundle -type f -name '*.deb' -print -quit)" release-assets/
+          cp "$(find target/release/bundle -type f -name '*.deb.sig' -print -quit)" release-assets/
+          test -n "$(find release-assets -type f -name '*.AppImage' -print -quit)"
+          test -n "$(find release-assets -type f -name '*.AppImage.sig' -print -quit)"
+
+      - name: Collect Windows bundles
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp target/release/bundle/nsis/*.exe release-assets/
+          cp target/release/bundle/nsis/*.nsis.zip release-assets/
+          cp target/release/bundle/nsis/*.nsis.zip.sig release-assets/
+          test -n "$(find release-assets -type f -name '*.nsis.zip' -print -quit)"
+          test -n "$(find release-assets -type f -name '*.nsis.zip.sig' -print -quit)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows
+          path: release-assets
+
+      - name: Generate combined updater manifest
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/merge-latest.py "${GITHUB_REF_NAME#v}" "$GITHUB_REF_NAME" release-assets
+
+      - name: Generate release notes
+        run: python3 scripts/release-notes.py "$GITHUB_REF_NAME" > release-notes.md
+
+      - name: Publish release and all platform assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" --title "StreamHata $GITHUB_REF_NAME" --notes-file release-notes.md
+          gh release upload "$GITHUB_REF_NAME" release-assets/* latest.json

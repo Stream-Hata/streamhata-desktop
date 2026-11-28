@@ -76,6 +76,8 @@
   ],
   "remote": {
     "urls": [
+      "https://ru.streamhata.rdpctd.dev",
+      "https://ru.streamhata.rdpctd.dev/*",
       "https://streamhata.rdpctd.dev",
       "https://streamhata.rdpctd.dev/*"
     ]

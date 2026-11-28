@@ -1,10 +1,9 @@
 name: Release Linux
 
 on:
-  workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:

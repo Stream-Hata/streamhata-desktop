@@ -1,10 +1,23 @@
 mod obs;
 
+#[cfg(target_os = "windows")]
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::process::Command;
+
+#[cfg(target_os = "windows")]
+fn hidden_command(program: &str) -> Command {
+    use std::os::windows::process::CommandExt;
+
+    let mut command = Command::new(program);
+    command.creation_flags(0x0800_0000);
+    command
+}
+use std::sync::OnceLock;
 use std::thread;
+use std::time::{Duration, Instant};
 
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
@@ -68,7 +81,57 @@ fn open_external_target(target: &str) -> Result<(), String> {
     open::that(target).map_err(|error| error.to_string())
 }
 
-#[derive(Serialize)]
+const API_BASES: [&str; 2] = [
+    "https://ru.streamhata.rdpctd.dev",
+    "https://streamhata.rdpctd.dev",
+];
+
+fn preferred_api_bases() -> Vec<&'static str> {
+    let locale = std::env::var("LC_ALL")
+        .or_else(|_| std::env::var("LANG"))
+        .unwrap_or_default()
+        .to_lowercase();
+    let prefer_ru = locale.starts_with("ru");
+
+    if prefer_ru {
+        vec![API_BASES[0], API_BASES[1]]
+    } else {
+        vec![API_BASES[1], API_BASES[0]]
+    }
+}
+
+fn probe_api(base: &str) -> bool {
+    let base = base.to_owned();
+    std::thread::spawn(move || {
+        reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(3))
+            .build()
+            .ok()
+            .and_then(|client| client.get(format!("{base}/live")).send().ok())
+            .map(|response| response.status().is_success())
+            .unwrap_or(false)
+    })
+    .join()
+    .unwrap_or(false)
+}
+
+fn api_base() -> &'static str {
+    static BASE: OnceLock<&'static str> = OnceLock::new();
+
+    BASE.get_or_init(|| {
+        let bases = preferred_api_bases();
+
+        for base in &bases {
+            if probe_api(base) {
+                return base;
+            }
+        }
+
+        bases[0]
+    })
+}
+
+#[derive(Serialize, Clone)]
 struct DiskMetric {
     name: String,
     mount: String,
@@ -81,14 +144,14 @@ struct DiskMetric {
     written_bytes: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct CpuCoreMetric {
     name: String,
     usage: f32,
     frequency: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct ProcessMetric {
     pid: u32,
     name: String,
@@ -100,7 +163,7 @@ struct ProcessMetric {
     user: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct NetworkMetric {
     name: String,
     received: u64,
@@ -116,21 +179,21 @@ struct NetworkMetric {
     link_speed: Option<u64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct BatteryMetric {
     name: String,
     status: String,
     percent: Option<f32>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct PeripheralMetric {
     name: String,
     kind: String,
     detail: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct SensorMetric {
     name: String,
     kind: String,
@@ -138,7 +201,7 @@ struct SensorMetric {
     unit: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct MemoryModule {
     locator: String,
     bank: String,
@@ -149,7 +212,7 @@ struct MemoryModule {
     part_number: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct VolumeMetric {
     name: String,
     path: String,
@@ -165,7 +228,7 @@ struct VolumeMetric {
     revision: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct SmartAttribute {
     id: u64,
     name: String,
@@ -175,7 +238,7 @@ struct SmartAttribute {
     raw: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct DiskHealth {
     device: String,
     model: String,
@@ -198,7 +261,7 @@ struct DiskHealth {
     attributes: Vec<SmartAttribute>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct SystemDetails {
     memory: Vec<MemoryModule>,
     volumes: Vec<VolumeMetric>,
@@ -212,7 +275,7 @@ struct SystemDetails {
     serial: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct SystemMetrics {
     cpu: f32,
     gpu: Option<f32>,
@@ -249,6 +312,23 @@ struct SystemMetrics {
     gpu_memory_used: Option<u64>,
     cpu_temperature: Option<f32>,
     sensors: Vec<SensorMetric>,
+}
+
+static SYSTEM_METRICS_CACHE: std::sync::Mutex<Option<(Instant, SystemMetrics)>> =
+    std::sync::Mutex::new(None);
+
+fn cached_system_metrics() -> SystemMetrics {
+    let mut cache = SYSTEM_METRICS_CACHE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((at, value)) = cache.as_ref() {
+        if at.elapsed() < Duration::from_secs(15) {
+            return value.clone();
+        }
+    }
+    let value = collect_system_metrics();
+    *cache = Some((Instant::now(), value.clone()));
+    value
 }
 
 #[cfg(target_os = "linux")]
@@ -358,7 +438,7 @@ fn gpu_memory() -> (Option<u64>, Option<u64>) {
 
 #[cfg(target_os = "windows")]
 fn gpu_memory() -> (Option<u64>, Option<u64>) {
-    let Ok(output) = Command::new("nvidia-smi")
+    let Ok(output) = hidden_command("nvidia-smi")
         .args([
             "--query-gpu=memory.total,memory.used",
             "--format=csv,noheader,nounits",
@@ -393,10 +473,17 @@ fn gpu_memory() -> (Option<u64>, Option<u64>) {
 
 #[cfg(target_os = "windows")]
 fn powershell_json(script: &str) -> Option<serde_json::Value> {
-    use std::os::windows::process::CommandExt;
-
-    let output = Command::new("powershell")
-        .creation_flags(0x0800_0000)
+    static CACHE: OnceLock<
+        std::sync::Mutex<HashMap<String, (Instant, Option<serde_json::Value>)>>,
+    > = OnceLock::new();
+    let cache = CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+    let mut cache = cache.lock().ok()?;
+    if let Some((at, value)) = cache.get(script) {
+        if at.elapsed() < Duration::from_secs(60) {
+            return value.clone();
+        }
+    }
+    let value = hidden_command("powershell")
         .args([
             "-NoProfile",
             "-NonInteractive",
@@ -406,12 +493,14 @@ fn powershell_json(script: &str) -> Option<serde_json::Value> {
             script,
         ])
         .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(text.trim_start_matches('\u{feff}').trim()).ok()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            let text = String::from_utf8_lossy(&output.stdout);
+            serde_json::from_str(text.trim_start_matches('\u{feff}').trim()).ok()
+        });
+    cache.insert(script.to_string(), (Instant::now(), value.clone()));
+    value
 }
 
 #[cfg(target_os = "windows")]
@@ -429,7 +518,7 @@ fn json_u64(value: &serde_json::Value) -> u64 {
 
 #[cfg(target_os = "windows")]
 fn gpu_details() -> (Option<String>, Option<i64>) {
-    if let Ok(output) = Command::new("nvidia-smi")
+    if let Ok(output) = hidden_command("nvidia-smi")
         .args([
             "--query-gpu=name,temperature.gpu",
             "--format=csv,noheader,nounits",
@@ -901,7 +990,7 @@ fn network_extra(
 
 #[tauri::command]
 async fn system_metrics() -> Result<SystemMetrics, String> {
-    tauri::async_runtime::spawn_blocking(collect_system_metrics)
+    tauri::async_runtime::spawn_blocking(cached_system_metrics)
         .await
         .map_err(|error| error.to_string())
 }
@@ -1528,7 +1617,7 @@ fn kill_process(pid: u32) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        let status = Command::new("taskkill")
+        let status = hidden_command("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .status()
             .map_err(|error| error.to_string())?;
@@ -1583,7 +1672,7 @@ fn start_system_overlay_server() {
                         "application/json; charset=utf-8",
                     )
                 } else {
-                    let mut body = serde_json::to_string(&collect_system_metrics())
+                    let mut body = serde_json::to_string(&cached_system_metrics())
                         .unwrap_or_else(|_| "{}".to_string());
                     body.insert_str(1, "\"enabled\":true,");
 
@@ -2194,7 +2283,7 @@ fn resume_with_token(token: &str) -> Result<ResumeResponse, String> {
         .timeout(std::time::Duration::from_secs(12))
         .build()
         .map_err(|error| error.to_string())?
-        .post("https://streamhata.rdpctd.dev/rgg-sync/desktop/resume")
+        .post(format!("{}/rgg-sync/desktop/resume", api_base()))
         .bearer_auth(token)
         .send()
         .map_err(|error| error.to_string())?;
@@ -2270,7 +2359,8 @@ async fn switch_account(app: AppHandle, login: String) -> Result<bool, String> {
     write_accounts(&app, &accounts)?;
 
     let bridge = format!(
-        "https://streamhata.rdpctd.dev/rgg-sync/desktop/login?code={}",
+        "{}/rgg-sync/desktop/login?code={}",
+        api_base(),
         resume.bridge_code
     );
     if let Some(window) = app.get_webview_window("main") {
@@ -2314,7 +2404,8 @@ fn resume_session(app: AppHandle) -> Result<bool, String> {
         let _ = entry()?.set_password(session_token);
     }
     let bridge = format!(
-        "https://streamhata.rdpctd.dev/rgg-sync/desktop/login?code={}",
+        "{}/rgg-sync/desktop/login?code={}",
+        api_base(),
         resume.bridge_code
     );
 
@@ -2344,7 +2435,7 @@ fn resume_or_login(app: AppHandle) {
 fn navigate_login(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.navigate(
-            "https://streamhata.rdpctd.dev/login"
+            format!("{}/login", api_base())
                 .parse()
                 .expect("valid login url"),
         );
@@ -2359,10 +2450,11 @@ fn start_desktop_login(app: AppHandle, force: Option<bool>) -> Result<(), String
         .map_err(|error| error.to_string())?
         .port();
     let force = force.unwrap_or(false);
+    let base = api_base();
     let auth_url = if force {
-        format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}&force=1")
+        format!("{base}/desktop-auth?port={port}&force=1")
     } else {
-        format!("https://streamhata.rdpctd.dev/desktop-auth?port={port}")
+        format!("{base}/desktop-auth?port={port}")
     };
 
     open_external_target(&auth_url)?;
@@ -2399,7 +2491,7 @@ fn start_desktop_login(app: AppHandle, force: Option<bool>) -> Result<(), String
         };
 
         let response = reqwest::blocking::Client::new()
-            .post("https://streamhata.rdpctd.dev/rgg-sync/desktop/exchange")
+            .post(format!("{}/rgg-sync/desktop/exchange", api_base()))
             .json(&serde_json::json!({ "code": code }))
             .send()
             .and_then(|response| response.error_for_status())
@@ -2424,7 +2516,8 @@ fn start_desktop_login(app: AppHandle, force: Option<bool>) -> Result<(), String
         }
 
         let bridge = format!(
-            "https://streamhata.rdpctd.dev/rgg-sync/desktop/login?code={}",
+            "{}/rgg-sync/desktop/login?code={}",
+            api_base(),
             exchange.bridge_code
         );
 
@@ -2549,7 +2642,7 @@ async fn rollback_update(app: AppHandle) -> Result<(), String> {
             target.display()
         );
         std::fs::write(&script, content).map_err(|error| error.to_string())?;
-        Command::new("cmd")
+        hidden_command("cmd")
             .args(["/C", script.to_string_lossy().as_ref()])
             .spawn()
             .map_err(|error| error.to_string())?;
@@ -2908,7 +3001,7 @@ async fn download_update_bytes(app: &AppHandle, update: &Update) -> Result<Vec<u
         .download_url
         .path_segments()
         .and_then(|mut segments| segments.next_back())
-        .map(|name| format!("https://streamhata.rdpctd.dev/desktop/{name}"));
+        .map(|name| format!("{}/desktop/{name}", api_base()));
 
     let mut urls = vec![primary];
 
@@ -3086,16 +3179,9 @@ fn start_update_poller(app: AppHandle) {
         loop {
             let handle = app.clone();
 
-            let auto_install = AUTO_UPDATE_CHECK.load(Ordering::SeqCst);
-            let result = tauri::async_runtime::block_on(async move { check_update(handle).await });
-            if auto_install && matches!(result, Ok(Some(_))) {
-                let install_app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    if install_update_now(install_app.clone()).await.is_ok() {
-                        install_app.restart();
-                    }
-                });
-            }
+            // Background checks only notify. Installing must remain an explicit user action;
+            // automatic installs can repeatedly launch the Windows updater helper.
+            let _ = tauri::async_runtime::block_on(async move { check_update(handle).await });
 
             thread::sleep(std::time::Duration::from_secs(5 * 60));
         }
@@ -3305,14 +3391,14 @@ fn start_notification_poller(app: AppHandle) {
             let cookies = window.cookies().unwrap_or_default();
             let Some(cookie) = cookies
                 .iter()
-                .find(|cookie| cookie.name() == "e-hub-refresh-token")
+                .find(|cookie| cookie.name() == "streamhata-twitch-session")
             else {
                 continue;
             };
-            let cookie_header = format!("e-hub-refresh-token={}", cookie.value());
+            let cookie_header = format!("streamhata-twitch-session={}", cookie.value());
 
             let settings = client
-                .get("https://streamhata.rdpctd.dev/rgg-sync/notifications/settings")
+                .get(format!("{}/rgg-sync/notifications/settings", api_base()))
                 .send()
                 .and_then(|response| response.error_for_status())
                 .and_then(|response| response.json::<serde_json::Value>());
@@ -3332,7 +3418,7 @@ fn start_notification_poller(app: AppHandle) {
 
             if settings.get("version").and_then(|value| value.as_bool()) == Some(true) && !quiet {
                 if let Ok(response) = client
-                    .get("https://streamhata.rdpctd.dev/version.json")
+                    .get(format!("{}/version.json", api_base()))
                     .send()
                     .and_then(|response| response.error_for_status())
                     .and_then(|response| response.json::<serde_json::Value>())
@@ -3349,7 +3435,7 @@ fn start_notification_poller(app: AppHandle) {
             }
 
             let viewers = client
-                .get("https://streamhata.rdpctd.dev/rgg-sync/viewers")
+                .get(format!("{}/rgg-sync/viewers", api_base()))
                 .header(reqwest::header::COOKIE, &cookie_header)
                 .send()
                 .and_then(|response| response.error_for_status())
@@ -3393,7 +3479,7 @@ fn start_notification_poller(app: AppHandle) {
             }
 
             let alerts = client
-                .get("https://streamhata.rdpctd.dev/rgg-sync/alerts")
+                .get(format!("{}/rgg-sync/alerts", api_base()))
                 .header(reqwest::header::COOKIE, cookie_header)
                 .send()
                 .and_then(|response| response.error_for_status())
